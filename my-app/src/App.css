@@ -59,9 +59,11 @@ textarea {
   overflow: hidden;
   text-overflow: ellipsis;
   justify-self: center;
-  font-size: 4rem;
   font-family: 'Avenir', Helvetica, Arial, sans-serif;
-   margin: 1rem;
+  font-size: clamp(1rem, 5vw, 4rem);
+  margin: 1rem;
+  margin-right: 3rem;
+  margin-left: 3rem;
 }
 
 .card-image-viewer {
@@ -108,6 +110,97 @@ textarea {
 .notepad::-webkit-scrollbar:horizontal {
   display: none;
 }
+.mode-switch, .privacy-switch {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin: 1rem 0;
+}
+
+.mode-switch span,
+.privacy-switch span {
+  font-weight: 600;
+  color: #eee;
+  margin-right: 0.5rem;
+}
+
+.mode-switch label,
+.privacy-switch label {
+  position: relative;
+  padding-left: 2.5rem;
+  cursor: pointer;
+  user-select: none;
+  color: #ddd;
+  font-size: 1rem;
+}
+
+/* сами невидимые радио */
+.mode-switch input[type="radio"],
+.privacy-switch input[type="radio"] {
+  position: absolute;
+  opacity: 0;
+  cursor: pointer;
+}
+
+/* кастомный кружок */
+.mode-switch label::before,
+.privacy-switch label::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 1.2rem;
+  height: 1.2rem;
+  border: 2px solid #aaa;
+  border-radius: 50%;
+  background: transparent;
+  transition: border-color 0.2s, background-color 0.2s;
+}
+
+/* галочка внутри */
+.mode-switch input:checked + label::before,
+.privacy-switch input:checked + label::before {
+  background-color: #fff;
+  border-color: #fff;
+}
+
+/* disabled стиль */
+.mode-switch input:disabled + label,
+.privacy-switch input:disabled + label {
+  color: #555;
+}
+.mode-switch input:disabled + label::before,
+.privacy-switch input:disabled + label::before {
+  border-color: #555;
+}
+
+/* кнопка Создать */
+button[type="submit"] {
+  display: inline-block;
+  padding: 0.75rem 2rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #222;
+  background: #fff;
+  border: 2px solid #fff;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.1s, box-shadow 0.2s;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+button[type="submit"]:hover {
+  background: #f0f0f0;
+  box-shadow: 0 6px 12px rgba(0,0,0,0.15);
+  transform: translateY(-2px);
+}
+
+button[type="submit"]:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
 
 ::-webkit-scrollbar {
   width: 1px;

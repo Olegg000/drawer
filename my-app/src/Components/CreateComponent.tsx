@@ -1,5 +1,6 @@
 import React, {useEffect, useLayoutEffect, useRef, useState} from "react";
 import {HTMLMotionProps, motion} from "framer-motion";
+import { X } from "lucide-react";
 import { ArrowDown, ArrowUp } from "lucide-react";
 import {useNavigate} from "react-router-dom";
 import { Card } from './Card';
@@ -25,7 +26,7 @@ export const CreateComponent: React.FC<HTMLMotionProps<"div"> & { closeCreate: (
         const cardEl  = cardRef.current;
         if (!titleEl || !cardEl) return;
 
-        const containerW = cardEl.clientWidth - 64; // padding: 1rem слева и справа
+        const containerW = cardEl.clientWidth - 128; // padding: 1rem слева и справа
         let size = 64;
         // уменьшаем, пока не поместится
         while (size > 16) {
@@ -62,7 +63,25 @@ export const CreateComponent: React.FC<HTMLMotionProps<"div"> & { closeCreate: (
         >
             <Card>
                 <CardContent>
+                    <button
+                        onClick={closeCreate}
+                        style={{
+                            position: "absolute",
+                            top:  "0.5rem",
+                            right:"1rem",
+                            background: "transparent",
+                            border:     "none",
+                            cursor:     "pointer",
+                            padding:    "0.25rem",
+                            lineHeight: 1
+                        }}
+                        aria-label="Закрыть"
+                    >
+                        <X size={48} color="white" />
+                    </button>
+
                     <h2 ref={titleRef} className='card-logo' style={{ fontSize: `${fontSize}px` }}>{projectName || "Новый проект"}</h2>
+
                     <form onSubmit={async (e) => {await create(e)}}>
 
                         <div>
@@ -80,7 +99,7 @@ export const CreateComponent: React.FC<HTMLMotionProps<"div"> & { closeCreate: (
 
                         </div>
                         {warning && (
-                            <p style={{color:"red",margin:'1px',fontSize:'0.88rem'}}>Максимум {maxProjectNameLength} символов!</p>
+                            <p style={{color:"red",margin:'1px',fontSize:'0.88rem'}}>Максимум {maxProjectNameLength} символа!</p>
                         )}
 
                         <div>
@@ -93,7 +112,7 @@ export const CreateComponent: React.FC<HTMLMotionProps<"div"> & { closeCreate: (
                                     checked={mode === 'solo'}
                                     onChange={() => setMode('solo')}
                                 />
-                                Локальный
+                                Личный
                             </label>
                             <label>
                                 <input
@@ -119,7 +138,7 @@ export const CreateComponent: React.FC<HTMLMotionProps<"div"> & { closeCreate: (
                                         checked={privacy === 'public'}
                                         onChange={() => setPrivacy('public')}
                                     />
-                                    Публичное
+                                    Публичный
                                 </label>
                                 <label>
                                     <input
@@ -129,7 +148,7 @@ export const CreateComponent: React.FC<HTMLMotionProps<"div"> & { closeCreate: (
                                         checked={privacy === 'private'}
                                         onChange={() => setPrivacy('private')}
                                     />
-                                    Приватное
+                                    Приватный
                                 </label>
 
                                 {privacy === 'private' && (
@@ -144,9 +163,6 @@ export const CreateComponent: React.FC<HTMLMotionProps<"div"> & { closeCreate: (
                         )}
 
                         <div>
-                            <button type="button" onClick={() => {closeCreate()}}>
-                                Отмена
-                            </button>
                             <button type="submit">
                                 Создать
                             </button>

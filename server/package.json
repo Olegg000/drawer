@@ -1,0 +1,17 @@
+{
+  "name": "server",
+  "version": "1.0.0",
+  "scripts": {
+    "start": "node --loader ts-node/esm server.ts"
+  },
+  "type": "module",
+  "dependencies": {
+    "express": "^4.17.1",
+    "socket.io": "^4.1.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.8.3"
+  }
+}

@@ -1,0 +1,131 @@
+:root {
+  background-color: #fafafa;
+  margin: 0;
+  transition: all 0.4s ease-in-out;
+}
+/* ТЕКСТ АРЕЯ ДЛЯ НОН-ПАДА, ГЕНИАЛЬНЫЙ КОД*/
+textarea {
+  resize: none;
+  border: none;
+  white-space: pre-wrap;
+  flex-grow: 1;
+  font-size: calc(1px + 1vmin + 1vmax);
+  grid-row: 2 / 3;
+}
+.react-player-background {
+  position: absolute !important;
+  top: 0;
+  left: 0;
+  pointer-events: none; /* Не блокирует клики */
+  z-index: -1;
+}
+
+.notepad-holder {
+  position: fixed;
+  width: 100vw;
+  height: 100vh;
+}
+
+.notepad-label-container {
+  display: flex;
+  gap: 10vw;
+  align-items: flex-start;
+}
+
+.notepad {
+  width: 100%;
+  height: 100%;
+
+  display: grid;
+  grid-template-rows: calc(86px - 1vmin - 1vmax) 1fr;
+
+  position: absolute;
+}
+
+.card {
+  position: absolute;
+  top: 10%;
+  width: 45rem;
+  height: 40rem;
+  border: 1px solid rgba(255,255,255,0.1);
+  left: 30%;
+  transform: translate(-50%, -50%);
+  color: white;
+  padding: 0 1rem;
+}
+
+.card-logo {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  justify-self: center;
+  font-size: 4rem;
+  font-family: 'Avenir', Helvetica, Arial, sans-serif;
+   margin: 1rem;
+}
+
+.card-image-viewer {
+  position: relative;
+  width: 300px;      /* размер мини-окошка */
+  height: 200px;     /* можно менять на нужный */
+  overflow: hidden;  /* обрезает всё что выходит за пределы */
+  border: 1px solid rgba(255,255,255,0.2);
+  margin: 1rem auto;
+  touch-action: none; /* важно для тачев */
+}
+
+/* Смещаемую картинку делаем позиционированной */
+.card-image-inner {
+  position: absolute;
+  top: 0;
+  left: 0;
+  cursor: grab;
+}
+.card-image-inner:active {
+  cursor: grabbing;
+}
+/**/
+/* НЕОБХОРДИМО ДЛЯ КРАСИВЫХ СКРОЛЛ-БАРОВ */
+/**/
+
+.notepad::-webkit-scrollbar {
+  width: 4px;
+}
+
+.notepad::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.notepad::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 10px;
+}
+
+.notepad::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.notepad::-webkit-scrollbar:horizontal {
+  display: none;
+}
+
+::-webkit-scrollbar {
+  width: 1px;
+}
+
+::-webkit-scrollbar-track {
+  background: #111;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.4);
+}
+
+::-webkit-scrollbar:horizontal {
+  display: none;
+}

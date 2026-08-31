@@ -29,6 +29,7 @@ export const DrawPage: React.FC<DrawPageProps> = ({ setIsDark }) => {
     const [phrase] = useState<string>(() => getRandomPhrase());
     const [userCount, setUserCount] = useState(1);
     const [isNetworkMode, setIsNetworkMode] = useState(false);
+    const [isServerDown, setIsServerDown] = useState(false);
     const navigate = useNavigate();
 
     const textRef = useRef<HTMLTextAreaElement>(null);
@@ -88,6 +89,14 @@ export const DrawPage: React.FC<DrawPageProps> = ({ setIsDark }) => {
                 setUserCount(count);
             };
 
+            // Сервер может быть не поднят (например, на статическом хостинге):
+            // ловим это событиями сокета и одной проверкой по таймауту.
+            const handleConnected = () => setIsServerDown(false);
+            const handleConnectError = () => setIsServerDown(true);
+            const downCheck = setTimeout(() => setIsServerDown(!ServerABI.isWork), 3000);
+
+            ServerABI.on('connect', handleConnected);
+            ServerABI.on('connect_error', handleConnectError);
             ServerABI.on('roomState', handleRoomState);
             ServerABI.on('text', handleText);
             ServerABI.on('drawLine', handleDrawLine);
@@ -97,6 +106,9 @@ export const DrawPage: React.FC<DrawPageProps> = ({ setIsDark }) => {
 
             return () => {
                 clearTimeout(joinTimeout);
+                clearTimeout(downCheck);
+                ServerABI.off('connect', handleConnected);
+                ServerABI.off('connect_error', handleConnectError);
                 ServerABI.off('roomState', handleRoomState);
                 ServerABI.off('text', handleText);
                 ServerABI.off('drawLine', handleDrawLine);
@@ -107,6 +119,8 @@ export const DrawPage: React.FC<DrawPageProps> = ({ setIsDark }) => {
             };
         } else {
             // Локальный режим - загружаем из localStorage
+            setIsNetworkMode(false);
+            setIsServerDown(false);
             setText(localStorage.getItem('text') || '');
         }
     }, [roomId]);
@@ -272,6 +286,34 @@ export const DrawPage: React.FC<DrawPageProps> = ({ setIsDark }) => {
 
     return (
         <div className="notepad-holder" style={{ position: "fixed", width: "100%", height: "100vh" }}>
+            {isNetworkMode && isServerDown && (
+                <div style={{
+                    position: "absolute", zIndex: 20, top: "1rem", left: "50%",
+                    transform: "translateX(-50%)", width: "min(560px, 92%)",
+                    display: "flex", alignItems: "center", gap: "1rem", flexWrap: "wrap",
+                    padding: "0.9rem 1.2rem",
+                    background: "var(--lv-surface)", color: "var(--lv-ink)",
+                    border: `1px solid var(--lv-line)`, borderLeft: "4px solid var(--lv-warn)",
+                    borderRadius: "var(--lv-radius)", boxShadow: "var(--lv-shadow)",
+                    fontFamily: "var(--lv-body)", fontSize: "0.95rem",
+                }}>
+                    <span style={{ flex: "1 1 15rem" }}>
+                        Сервер комнат не подключён — синхронизации не будет.
+                        Доступен локальный режим: рисунок и текст остаются в браузере.
+                    </span>
+                    <button
+                        onClick={() => navigate('/Draw/local')}
+                        style={{
+                            padding: "0.55rem 1.1rem", border: "none",
+                            borderRadius: "100px", cursor: "pointer",
+                            background: "var(--lv-accent)", color: "var(--lv-paper)",
+                            fontFamily: "var(--lv-body)", fontWeight: 600, fontSize: "0.95rem",
+                        }}
+                    >
+                        Локальный режим
+                    </button>
+                </div>
+            )}
             <div className="notepad" ref={containerRef} style={{ position: "relative", width: "100%", overflowY: 'auto', overflowX: 'hidden' }}>
                 <textarea
                     ref={textRef}

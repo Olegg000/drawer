@@ -136,6 +136,41 @@ export const StartPage: React.FC = () => {
                     </motion.h1>
 
                     <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.8 }}
+                        style={{ marginBottom: "2rem" }}
+                    >
+                        <button
+                            onClick={() => navigate('/Draw/local')}
+                            style={{
+                                padding: "1.1rem 3.2rem",
+                                borderRadius: "100px",
+                                border: "none",
+                                background: "var(--lv-accent)",
+                                color: "var(--lv-paper)",
+                                fontFamily: "var(--lv-body)",
+                                fontSize: "1.35rem",
+                                fontWeight: 600,
+                                cursor: "pointer",
+                                boxShadow: "0 10px 30px -10px rgba(0,0,0,0.9)",
+                            }}
+                        >
+                            Попробовать локально
+                        </button>
+                        <p style={{
+                            fontFamily: "var(--lv-mono)",
+                            fontSize: "0.85rem",
+                            letterSpacing: "0.08em",
+                            textTransform: "uppercase",
+                            color: "rgba(255,255,255,0.6)",
+                            marginTop: "0.9rem",
+                        }}>
+                            Без сервера · рисунок и текст хранятся в браузере
+                        </p>
+                    </motion.div>
+
+                    <motion.div
                         initial={{ y: 50 }}
                         animate={{ y: 0 }}
                         transition={{ duration: 1 }}
@@ -292,8 +327,20 @@ export const StartPage: React.FC = () => {
                         </motion.div>
                     </div>
                 ) : (<>
-                    <p style={{ fontSize: "1.25rem", color: "#aaa" }}>
-                        У вас пока нет комнат 😔
+                    <p style={{ fontSize: "1.25rem", color: "#aaa", maxWidth: "40rem", margin: "0 auto" }}>
+                        Комнат нет: сервер Socket.IO не отвечает. Поднимите его локально
+                        (<code style={{ fontFamily: "var(--lv-mono)" }}>server/</code>, порт 8000) — или
+                        {" "}
+                        <button
+                            onClick={() => navigate('/Draw/local')}
+                            style={{
+                                background: "none", border: "none", padding: 0,
+                                font: "inherit", color: "var(--lv-accent)",
+                                textDecoration: "underline", cursor: "pointer",
+                            }}
+                        >
+                            откройте локальный режим
+                        </button>.
                     </p>
                     <motion.div
                         initial={{ opacity: 0, y: 30 }}

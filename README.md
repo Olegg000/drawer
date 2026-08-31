@@ -1,6 +1,14 @@
+**Живое демо: https://olegg000.github.io/drawer/** — открывается сразу в локальном режиме.
+
 # Drawer — realtime collaborative whiteboard
 
-> **EN (short):** A realtime collaborative whiteboard: several people draw and type on a shared canvas at once, changes sync instantly over WebSocket. Frontend — React 19 + react-konva + Redux Toolkit (CRA, PWA). Backend — Express + Socket.IO with in-memory room state. Rooms are addressed by URL (`/Draw/:roomId`); a solo `local` mode persists to `localStorage`. Run: start the Socket.IO server (`server/`, port 8000), then the client (`my-app/`, port 3000).
+> **EN (short):** A realtime collaborative whiteboard: several people draw and type on a shared canvas at once, changes sync instantly over WebSocket. Frontend — React 19 + react-konva + Redux Toolkit (CRA, PWA). Backend — Express + Socket.IO with in-memory room state. Rooms are addressed by URL (`#/Draw/:roomId`); a solo `local` mode persists to `localStorage`. The live demo on GitHub Pages is static, so only the local mode works there — shared rooms need the Socket.IO server from `server/`.
+
+> **Про демо, честно.** GitHub Pages отдаёт только статику, поэтому на демо работает
+> локальный режим: холст, текст, темы, undo/redo, всё хранится в браузере. Сетевые
+> комнаты требуют запущенного Socket.IO-сервера (`server/`, порт 8000) — если открыть
+> комнату без него, приложение показывает плашку «сервер не подключён» и предлагает
+> локальный режим, а не пустой экран.
 
 ![Комната Drawer: общий текст и рисунок на холсте](docs/demo.png)
 
@@ -17,11 +25,13 @@ Drawer — доска для совместного рисования и зам
 - **Совместное рисование** — линии на холсте `react-konva` транслируются всем
   участникам комнаты в реальном времени.
 - **Общий текст** — текстовое поле синхронизируется между всеми участниками.
-- **Комнаты** — адрес комнаты в URL (`/Draw/:roomId`); при входе новый участник
+- **Комнаты** — адрес комнаты в URL (`#/Draw/:roomId`); при входе новый участник
   получает текущее состояние доски.
 - **Счётчик онлайна** — сервер отдаёт число активных участников комнаты.
-- **Локальный режим** — `/Draw/local` работает без сервера, состояние хранится в
-  `localStorage`.
+- **Локальный режим** — `#/Draw/local` работает без сервера, текст хранится в
+  `localStorage`. Кнопка «Попробовать локально» ведёт туда со стартового экрана.
+- **Плашка про сервер** — если комната открыта, а Socket.IO не отвечает, приложение
+  говорит об этом и предлагает локальный режим.
 - **Undo / Redo** — отмена и возврат штрихов с клавиатуры (Ctrl/⌘ + Z / Y).
 - **Тёмная и светлая темы**, PWA (service worker, устанавливается как приложение).
 
@@ -32,6 +42,19 @@ Drawer — доска для совместного рисования и зам
 | Клиент   | React 19, TypeScript, react-konva / konva, Redux Toolkit, react-router, framer-motion, styled-components, CRA (PWA-шаблон) |
 | Сервер   | Node.js, Express, Socket.IO, TypeScript (ts-node)                          |
 | Транспорт| WebSocket (Socket.IO), fallback на long-polling                            |
+
+## Быстрый старт
+
+Только доска, без сети — как на демо:
+
+```bash
+cd my-app && npm ci && npm start
+```
+
+Открыть `http://localhost:3000/drawer/#/Draw/local` — путь `/drawer/` задан полем
+`homepage` под GitHub Pages, dev-сервер использует тот же префикс.
+
+Полная версия с комнатами — нужен ещё сервер, см. ниже.
 
 ## Как запустить
 
@@ -57,8 +80,8 @@ npm start
 
 Клиент сам определяет адрес сервера как `http://<hostname>:8000`, поэтому при
 локальном запуске дополнительная настройка не нужна. Открыть в браузере
-`http://localhost:3000`, создать комнату и открыть тот же URL комнаты во второй
-вкладке/на другом устройстве, чтобы увидеть синхронизацию.
+`http://localhost:3000/drawer/`, создать комнату и открыть тот же URL комнаты во
+второй вкладке/на другом устройстве, чтобы увидеть синхронизацию.
 
 Production-сборка клиента:
 
@@ -66,6 +89,13 @@ Production-сборка клиента:
 cd my-app
 npm run build
 ```
+
+### Деплой на GitHub Pages
+
+`homepage` в `my-app/package.json` — `/drawer/`, роутер хешевый (`HashRouter`),
+поэтому статика живёт по подпути и глубокие ссылки не упираются в 404; на всякий
+случай сборка кладёт рядом `404.html` — копию `index.html`. Публикацию делает
+workflow `.github/workflows/pages.yml` при пуше в `main`.
 
 ## Структура
 
@@ -79,9 +109,11 @@ drawer/
 │       ├── abi/          # ServerABI — обёртка над Socket.IO-клиентом
 │       ├── Store/        # Redux Toolkit store
 │       ├── sourses/      # SVG-иконки (Sun / Moon / Pen)
+│       ├── styles/       # токены оформления (шрифты, палитра, шкала)
 │       └── utils/        # delay, случайные фразы-плейсхолдеры
-└── server/               # Express + Socket.IO
-    └── server.ts         # комнаты, трансляция линий и текста, счётчик онлайна
+├── server/               # Express + Socket.IO
+│   └── server.ts         # комнаты, трансляция линий и текста, счётчик онлайна
+└── .github/workflows/    # сборка и публикация клиента на GitHub Pages
 ```
 
 ## Как это работает

@@ -5,7 +5,7 @@ import { lightTheme, darkTheme } from './types/theme';
 import { useEffect, useState } from "react";
 import Pen from "./sourses/Pen";
 import { DrawPage } from "./Pages/DrawPage";
-import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
+import { HashRouter as Router, Route, Routes } from "react-router-dom";
 import { StartPage } from "./Pages/StartPage";
 import { Provider } from "react-redux";
 import { store } from "./Store/Store";
@@ -24,6 +24,8 @@ const Container = styled.div`
     transition: background 0.4s ease-in-out;
 `;
 
+// Хеш-роутинг: сборка выкладывается на статику (GitHub Pages),
+// где сервер не умеет отдавать index.html на произвольный путь.
 function App() {
     const [isDark, setIsDark] = React.useState(localStorage.getItem('theme') === 'dark');
 

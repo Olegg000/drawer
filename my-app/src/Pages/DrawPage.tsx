@@ -164,9 +164,27 @@ export const DrawPage: React.FC<DrawPageProps> = ({ setIsDark }) => {
         if (textRef.current) {
             textRef.current.style.height = "auto";
             textRef.current.style.height = `${textRef.current.scrollHeight - 80}px`;
-            setDimensions({ width: window.innerWidth, height: textRef.current.scrollHeight + 100 });
+            setDimensions({
+                width: containerRef.current?.clientWidth || window.innerWidth,
+                height: textRef.current.scrollHeight + 100,
+            });
         }
     }, [text]);
+
+    // Холст следует за шириной контейнера: у вкладки, открытой в фоне,
+    // window.innerWidth равен нулю, и Stage остаётся нулевой ширины навсегда
+    useEffect(() => {
+        const container = containerRef.current;
+        if (!container) return;
+        const observer = new ResizeObserver(([entry]) => {
+            const width = entry.contentRect.width;
+            if (width > 0) {
+                setDimensions(prev => (prev.width === width ? prev : { ...prev, width }));
+            }
+        });
+        observer.observe(container);
+        return () => observer.disconnect();
+    }, []);
 
     // undo/redo
     useEffect(() => {

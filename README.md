@@ -2,7 +2,7 @@
 
 > **EN (short):** A realtime collaborative whiteboard: several people draw and type on a shared canvas at once, changes sync instantly over WebSocket. Frontend — React 19 + react-konva + Redux Toolkit (CRA, PWA). Backend — Express + Socket.IO with in-memory room state. Rooms are addressed by URL (`/Draw/:roomId`); a solo `local` mode persists to `localStorage`. Run: start the Socket.IO server (`server/`, port 8000), then the client (`my-app/`, port 3000).
 
-**Demo:** `демо: docs/demo.gif` <!-- GIF будет добавлен позже -->
+![Комната Drawer: общий текст и рисунок на холсте](docs/demo.png)
 
 ---
 

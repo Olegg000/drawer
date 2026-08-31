@@ -1,0 +1,117 @@
+import { io, Socket } from 'socket.io-client';
+
+export interface RoomState {
+    text: string;
+    lines: { points: number[] }[];
+    userCount: number;
+}
+
+export class ServerABI {
+    private static socket: Socket;
+    // Используем location.hostname для автоматического определения адреса сервера
+    static get serverUrl(): string {
+        const hostname = typeof window !== 'undefined' ? window.location.hostname : '127.0.0.1';
+        return `http://${hostname}:8000`;
+    }
+    static isWork: boolean = false;
+    static currentRoomId: string | null = null;
+
+    static connect() {
+        if (!ServerABI.socket) {
+            ServerABI.socket = io(ServerABI.serverUrl, {
+                transports: ['websocket', 'polling'],
+                reconnectionAttempts: 5,
+                timeout: 5000
+            });
+
+            ServerABI.socket.on('connect', () => {
+                ServerABI.isWork = true;
+            });
+
+            ServerABI.socket.on('connect_error', (err) => {
+                console.error('❌ Ошибка подключения к WebSocket:', err.message);
+                ServerABI.isWork = false;
+            });
+
+            ServerABI.socket.on('disconnect', (reason) => {
+                console.warn('⚠️ WebSocket отключён:', reason);
+                ServerABI.isWork = false;
+            });
+
+            ServerABI.socket.io.on('reconnect', () => {
+                ServerABI.isWork = true;
+                // Переподключаемся к комнате если была
+                if (ServerABI.currentRoomId) {
+                    ServerABI.joinRoom(ServerABI.currentRoomId);
+                }
+            });
+
+            ServerABI.socket.io.on('reconnect_failed', () => {
+                console.error('❌ Все попытки переподключения не удались.');
+                ServerABI.isWork = false;
+            });
+        }
+    }
+
+    static joinRoom(roomId: string) {
+        ServerABI.currentRoomId = roomId;
+        if (ServerABI.socket?.connected) {
+            ServerABI.socket.emit('joinRoom', roomId);
+        }
+    }
+
+    static leaveRoom() {
+        ServerABI.currentRoomId = null;
+    }
+
+    static sendText(text: string) {
+        if (ServerABI.socket?.connected && ServerABI.currentRoomId) {
+            ServerABI.socket.emit('text', { roomId: ServerABI.currentRoomId, text });
+        }
+    }
+
+    static sendDrawLine(line: { points: number[] }) {
+        if (ServerABI.socket?.connected && ServerABI.currentRoomId) {
+            ServerABI.socket.emit('drawLine', { roomId: ServerABI.currentRoomId, line });
+        }
+    }
+
+    static sendUpdateLine(points: number[]) {
+        if (ServerABI.socket?.connected && ServerABI.currentRoomId) {
+            ServerABI.socket.emit('updateLine', { roomId: ServerABI.currentRoomId, points });
+        }
+    }
+
+    static sendClearLines() {
+        if (ServerABI.socket?.connected && ServerABI.currentRoomId) {
+            ServerABI.socket.emit('clearLines', ServerABI.currentRoomId);
+        }
+    }
+
+    static emit(event: string, data: any) {
+        if (ServerABI.socket?.connected) {
+            ServerABI.socket.emit(event, data);
+        } else {
+            console.warn('⛔ Попытка отправки, но сокет не подключён');
+        }
+    }
+
+    static on(event: string, callback: (...args: any[]) => void) {
+        ServerABI.socket?.on(event, callback);
+    }
+
+    static off(event: string, callback?: (...args: any[]) => void) {
+        if (callback) {
+            ServerABI.socket?.off(event, callback);
+        } else {
+            ServerABI.socket?.removeAllListeners(event);
+        }
+    }
+
+    static disconnect() {
+        ServerABI.socket?.disconnect();
+        ServerABI.socket = undefined as any;
+        ServerABI.isWork = false;
+        ServerABI.currentRoomId = null;
+    }
+}

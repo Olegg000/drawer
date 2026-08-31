@@ -8,15 +8,30 @@ export interface RoomState {
 
 export class ServerABI {
     private static socket: Socket;
-    // Используем location.hostname для автоматического определения адреса сервера
+    // Адрес сервера комнат: из переменной сборки, иначе тот же хост на порту 8000
     static get serverUrl(): string {
+        const configured = process.env.REACT_APP_SERVER_URL;
+        if (configured) return configured;
         const hostname = typeof window !== 'undefined' ? window.location.hostname : '127.0.0.1';
         return `http://${hostname}:8000`;
     }
+
+    /**
+     * Со страницы по https браузер не пустит соединение к http/ws — это Mixed Content.
+     * Поэтому на статичном хостинге (GitHub Pages) сервера комнат нет: не пытаемся
+     * подключаться вовсе, иначе консоль забивается заблокированными запросами.
+     */
+    static get available(): boolean {
+        if (typeof window === 'undefined') return false;
+        if (window.location.protocol !== 'https:') return true;
+        return ServerABI.serverUrl.startsWith('https://');
+    }
+
     static isWork: boolean = false;
     static currentRoomId: string | null = null;
 
     static connect() {
+        if (!ServerABI.available) return;
         if (!ServerABI.socket) {
             ServerABI.socket = io(ServerABI.serverUrl, {
                 transports: ['websocket', 'polling'],

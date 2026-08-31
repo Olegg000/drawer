@@ -40,6 +40,8 @@ export const StartPage: React.FC = () => {
 
     useEffect(() => {
         const tryConnect = async () => {
+            // На статичном хостинге сервера комнат нет — не ждём его двадцать секунд впустую
+            if (!ServerABI.available) return
             ServerABI.connect()
             if (!ServerABI.isWork) {
                 for (let i = 0; i < 5; i++) {

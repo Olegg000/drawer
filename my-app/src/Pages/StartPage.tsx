@@ -18,8 +18,19 @@ export const StartPage: React.FC = () => {
     const roomsRef = useRef<HTMLDivElement>(null);
     const [mockRooms, setMockRooms] = useState<{ id: string; name: string }[]>([]);
     const [isCreating, setIsCreating] = useState(false);
+    const [visited, setVisited] = useState<{ id: string; visitedAt: number }[]>([]);
     const navigate = useNavigate();
     const hasConnected = useRef(false);
+
+    // Список комнат, куда уже заходили: живёт в браузере и работает без сервера
+    useEffect(() => {
+        try {
+            const raw = localStorage.getItem('drawer:rooms');
+            if (raw) setVisited(JSON.parse(raw));
+        } catch {
+            // приватный режим браузера — списка просто не будет
+        }
+    }, []);
 
     useEffect(() => {
         const tryConnect = async () => {
@@ -151,14 +162,12 @@ export const StartPage: React.FC = () => {
                             <button className="lb-btn" onClick={() => setIsCreating(true)}>
                                 Создать комнату
                             </button>
-                            {hasRooms && (
-                                <button
-                                    className="lb-btn"
-                                    onClick={() => roomsRef.current?.scrollIntoView({ behavior: "smooth" })}
-                                >
-                                    Открытые комнаты
-                                </button>
-                            )}
+                            <button
+                                className="lb-btn"
+                                onClick={() => roomsRef.current?.scrollIntoView({ behavior: "smooth" })}
+                            >
+                                Комнаты
+                            </button>
                         </motion.div>
 
                         <p className="lb-mono" style={{ fontSize: ".78rem", color: "var(--lb-faint)", margin: 0 }}>
@@ -212,41 +221,92 @@ export const StartPage: React.FC = () => {
                 </div>
             </section>
 
-            {/* ── Комнаты: только когда сервер отвечает ────── */}
-            {hasRooms && (
-                <section ref={roomsRef} style={{ padding: "0 clamp(1rem, 4vw, 3rem) clamp(3rem, 7vw, 5.5rem)" }}>
-                    <div style={{ maxWidth: "72rem", margin: "0 auto" }}>
-                        <p className="lb-label" style={{ margin: "0 0 .8rem" }}>Открытые комнаты</p>
-                        <div
-                            style={{
+            {/* ── Комнаты ─────────────────────────────────── */}
+            <section ref={roomsRef} style={{ padding: "0 clamp(1rem, 4vw, 3rem) clamp(3rem, 7vw, 5.5rem)" }}>
+                <div style={{ maxWidth: "72rem", margin: "0 auto" }}>
+                    <p className="lb-label" style={{ margin: "0 0 .8rem" }}>Комнаты</p>
+                    <h2 style={{
+                        font: "800 clamp(1.5rem, 3.4vw, 2.3rem)/1.15 var(--lb-ui)",
+                        letterSpacing: "-.025em", margin: "0 0 1.6rem", textWrap: "balance",
+                    }}>
+                        Последние комнаты
+                    </h2>
+
+                    {visited.length > 0 && (
+                        <>
+                            <p className="lb-mono" style={{ fontSize: ".76rem", color: "var(--lb-faint)", margin: "0 0 .8rem" }}>
+                                вы здесь уже были
+                            </p>
+                            <div style={{
+                                display: "grid",
+                                gridTemplateColumns: "repeat(auto-fill, minmax(15rem, 1fr))",
+                                gap: ".9rem", marginBottom: hasRooms ? "2rem" : "1.4rem",
+                            }}>
+                                {visited.map(room => (
+                                    <button
+                                        key={room.id}
+                                        className="lb-glass"
+                                        onClick={() => navigate(`/Draw/${room.id}`)}
+                                        style={{
+                                            textAlign: "left", cursor: "pointer", color: "var(--lb-text)",
+                                            padding: "1.1rem 1.2rem", font: "600 .95rem/1.3 var(--lb-ui)",
+                                            overflow: "hidden", textOverflow: "ellipsis",
+                                        }}
+                                    >
+                                        {room.id}
+                                        <span className="lb-mono" style={{ display: "block", marginTop: ".4rem", fontSize: ".72rem", color: "var(--lb-faint)" }}>
+                                            {new Date(room.visitedAt).toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })} · вернуться →
+                                        </span>
+                                    </button>
+                                ))}
+                            </div>
+                        </>
+                    )}
+
+                    {hasRooms ? (
+                        <>
+                            <p className="lb-mono" style={{ fontSize: ".76rem", color: "var(--lb-faint)", margin: "0 0 .8rem" }}>
+                                открыты на сервере
+                            </p>
+                            <div style={{
                                 display: "grid",
                                 gridTemplateColumns: "repeat(auto-fill, minmax(13rem, 1fr))",
                                 gap: ".9rem",
-                            }}
-                        >
-                            {mockRooms.map(room => (
-                                <button
-                                    key={room.id}
-                                    className="lb-glass"
-                                    onClick={() => navigate(`/Draw/${room.id}`)}
-                                    style={{
-                                        textAlign: "left", cursor: "pointer", color: "var(--lb-text)",
-                                        padding: "1.1rem 1.2rem", font: "600 1rem/1.3 var(--lb-ui)",
-                                    }}
-                                >
-                                    {room.name}
-                                    <span
-                                        className="lb-mono"
-                                        style={{ display: "block", marginTop: ".4rem", fontSize: ".72rem", color: "var(--lb-faint)" }}
+                            }}>
+                                {mockRooms.map(room => (
+                                    <button
+                                        key={room.id}
+                                        className="lb-glass"
+                                        onClick={() => navigate(`/Draw/${room.id}`)}
+                                        style={{
+                                            textAlign: "left", cursor: "pointer", color: "var(--lb-text)",
+                                            padding: "1.1rem 1.2rem", font: "600 1rem/1.3 var(--lb-ui)",
+                                        }}
                                     >
-                                        войти →
-                                    </span>
-                                </button>
-                            ))}
+                                        {room.name}
+                                        <span className="lb-mono" style={{ display: "block", marginTop: ".4rem", fontSize: ".72rem", color: "var(--lb-faint)" }}>
+                                            войти →
+                                        </span>
+                                    </button>
+                                ))}
+                            </div>
+                        </>
+                    ) : (
+                        <div className="lb-glass" style={{ padding: "1.3rem 1.4rem", maxWidth: "46rem" }}>
+                            <p style={{ margin: "0 0 .9rem", color: "var(--lb-dim)", font: "400 .95rem/1.6 var(--lb-ui)" }}>
+                                Общих комнат сейчас нет: сервер Socket.IO не отвечает. На демо его и не может
+                                быть — GitHub Pages отдаёт только статику. Поднимите сервер локально
+                                (<span className="lb-mono" style={{ fontSize: ".88em" }}>server/</span>, порт 8000),
+                                и комнаты появятся здесь.
+                            </p>
+                            <button className="lb-btn" style={{ padding: "11px 18px", fontSize: ".92rem" }}
+                                onClick={() => navigate('/Draw/local')}>
+                                Открыть локальную доску
+                            </button>
                         </div>
-                    </div>
-                </section>
-            )}
+                    )}
+                </div>
+            </section>
 
             <footer
                 style={{

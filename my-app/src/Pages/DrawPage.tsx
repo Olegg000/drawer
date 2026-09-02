@@ -5,7 +5,7 @@ import { KonvaEventObject } from "konva/lib/Node";
 import Konva from "konva";
 import { getRandomPhrase } from "../utils/getRandomPhrase";
 import { motion } from "framer-motion";
-import { ArrowLeft, Download, Eraser, Moon, PenLine, Sun, Trash2, Undo2, Users } from "lucide-react";
+import { ArrowLeft, Download, Eraser, Moon, PenLine, Sun, Trash2, Type, Undo2, Users } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ServerABI, RoomState } from "../abi/ServerABI";
 
@@ -31,8 +31,8 @@ export const DrawPage: React.FC<DrawPageProps> = ({ setIsDark }) => {
     const [text, setText] = useState<string>('');
     const [lines, setLines] = useState<Stroke[]>([]);
     const [isDrawing, setIsDrawing] = useState(false);
-    const [drawingMode, setDrawingMode] = useState(true);
-    const [tool, setTool] = useState<'pen' | 'eraser'>('pen');
+    // Доска начинается как блокнот: пока выбран «текст», холст пропускает клики в поле.
+    const [tool, setTool] = useState<'text' | 'pen' | 'eraser'>('text');
     const [isDarkState, setIsDarkState] = useState(localStorage.getItem('theme') !== 'light');
     const [dimensions, setDimensions] = useState({ width: window.innerWidth, height: window.innerHeight });
     const [undoStack, setUndoStack] = useState<Stroke[]>([]);
@@ -42,6 +42,7 @@ export const DrawPage: React.FC<DrawPageProps> = ({ setIsDark }) => {
     const [isServerDown, setIsServerDown] = useState(false);
     const [copied, setCopied] = useState(false);
     const navigate = useNavigate();
+    const drawingMode = tool !== 'text';
 
     const textRef = useRef<HTMLTextAreaElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
@@ -56,6 +57,19 @@ export const DrawPage: React.FC<DrawPageProps> = ({ setIsDark }) => {
     useEffect(() => {
         setColor(prev => (theme.inks.includes(prev) ? prev : theme.inks[0]));
     }, [theme]);
+
+    // Комната запоминается локально: на главной из этого собирается список последних
+    useEffect(() => {
+        if (!roomId || roomId === 'local') return;
+        try {
+            const raw = localStorage.getItem('drawer:rooms');
+            const saved: { id: string; visitedAt: number }[] = raw ? JSON.parse(raw) : [];
+            const next = [{ id: roomId, visitedAt: Date.now() }, ...saved.filter(r => r.id !== roomId)].slice(0, 8);
+            localStorage.setItem('drawer:rooms', JSON.stringify(next));
+        } catch {
+            // приватный режим браузера — список просто не сохранится
+        }
+    }, [roomId]);
 
     // Подключение к комнате при монтировании
     useEffect(() => {
@@ -198,7 +212,9 @@ export const DrawPage: React.FC<DrawPageProps> = ({ setIsDark }) => {
                     if (isNetworkMode) ServerABI.sendDrawLine(restored);
                 }
             }
-            // Инструменты под рукой, как во взрослых редакторах
+            // Инструменты под рукой, как во взрослых редакторах.
+            // Проверка выше уже вернула управление, если фокус в тексте, — печатать не мешаем.
+            if (!ctrlKey && (e.key === 't' || e.key === 'е')) setTool('text');
             if (!ctrlKey && (e.key === 'e' || e.key === 'у')) setTool('eraser');
             if (!ctrlKey && (e.key === 'b' || e.key === 'и')) setTool('pen');
         };
@@ -462,12 +478,13 @@ export const DrawPage: React.FC<DrawPageProps> = ({ setIsDark }) => {
                     boxShadow: "var(--lb-lift)",
                 }}
             >
-                <button style={toolBtn(drawingMode && tool === 'pen')} title="Перо (B)"
-                    onClick={() => { setDrawingMode(true); setTool('pen'); }}>
+                <button style={toolBtn(tool === 'text')} title="Текст (T)" onClick={() => setTool('text')}>
+                    <Type size={17} />
+                </button>
+                <button style={toolBtn(tool === 'pen')} title="Перо (B)" onClick={() => setTool('pen')}>
                     <PenLine size={17} />
                 </button>
-                <button style={toolBtn(drawingMode && tool === 'eraser')} title="Ластик (E)"
-                    onClick={() => { setDrawingMode(true); setTool('eraser'); }}>
+                <button style={toolBtn(tool === 'eraser')} title="Ластик (E)" onClick={() => setTool('eraser')}>
                     <Eraser size={17} />
                 </button>
 
@@ -477,7 +494,7 @@ export const DrawPage: React.FC<DrawPageProps> = ({ setIsDark }) => {
                     <button
                         key={ink}
                         title="Цвет штриха"
-                        onClick={() => { setColor(ink); setTool('pen'); setDrawingMode(true); }}
+                        onClick={() => { setColor(ink); setTool('pen'); }}
                         style={{
                             width: 24, height: 24, borderRadius: "50%", cursor: "pointer",
                             background: ink, border: color === ink ? "2px solid var(--lb-text)" : "2px solid transparent",

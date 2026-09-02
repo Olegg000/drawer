@@ -1,0 +1,145 @@
+/* Drawer — «Световая доска».
+   Тёмная база с живым свечением; дневной режим сохранён (переключатель темы работает). */
+
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;800&family=JetBrains+Mono:wght@400;500&display=swap');
+
+:root {
+  --lb-void: #07070a;
+  --lb-veil: #0c0c11;
+  --lb-surface: rgba(255, 255, 255, .035);
+  --lb-surface-2: rgba(255, 255, 255, .07);
+  --lb-line: rgba(255, 255, 255, .09);
+  --lb-line-strong: rgba(255, 255, 255, .18);
+
+  --lb-text: #f0f0f5;
+  --lb-dim: #9a9aab;
+  --lb-faint: #6e6e80;
+
+  --lb-teal: #5eead4;
+  --lb-violet: #a78bfa;
+  --lb-fuchsia: #d946ef;
+  --lb-amber: #fbbf24;
+  --lb-rose: #fb7185;
+  --lb-ink: #0a0a12;
+
+  --lb-flow: linear-gradient(92deg, #5eead4, #a78bfa 55%, #d946ef);
+  --lb-halo: 0 0 24px rgba(94, 234, 212, .30);
+  --lb-lift: 0 24px 60px -34px rgba(0, 0, 0, .9);
+
+  --lb-ui: 'Manrope', system-ui, -apple-system, sans-serif;
+  --lb-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --lb-r: 14px;
+}
+
+/* Дневной режим: та же палитра акцентов, но по светлой бумаге и без свечения */
+:root[data-mode="day"] {
+  --lb-void: #f4f4f7;
+  --lb-veil: #ffffff;
+  --lb-surface: rgba(10, 10, 18, .035);
+  --lb-surface-2: rgba(10, 10, 18, .06);
+  --lb-line: rgba(10, 10, 18, .11);
+  --lb-line-strong: rgba(10, 10, 18, .22);
+
+  --lb-text: #14141b;
+  --lb-dim: #545465;
+  --lb-faint: #7b7b8c;
+
+  --lb-teal: #0d9488;
+  --lb-violet: #7c3aed;
+  --lb-fuchsia: #c026d3;
+  --lb-amber: #b45309;
+  --lb-rose: #e11d48;
+  --lb-ink: #ffffff;
+
+  --lb-halo: 0 0 0 rgba(0, 0, 0, 0);
+  --lb-lift: 0 20px 44px -30px rgba(10, 10, 25, .45);
+}
+
+.lb-mono { font-family: var(--lb-mono); }
+
+/* Надпись градиентом — заголовки и логотип */
+.lb-flow-text {
+  background: var(--lb-flow);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Стеклянная панель: панели инструментов, карточки, плашки */
+.lb-glass {
+  background: var(--lb-surface);
+  border: 1px solid var(--lb-line);
+  border-radius: var(--lb-r);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+/* Кнопки */
+.lb-btn {
+  font: 600 15px/1 var(--lb-ui);
+  padding: 13px 22px;
+  border-radius: 999px;
+  border: 1px solid var(--lb-line-strong);
+  background: transparent;
+  color: var(--lb-text);
+  cursor: pointer;
+  transition: border-color .2s, background .2s, transform .12s;
+}
+.lb-btn:hover { border-color: var(--lb-teal); background: var(--lb-surface-2); }
+.lb-btn:active { transform: translateY(1px); }
+
+.lb-btn-primary {
+  font: 800 15px/1 var(--lb-ui);
+  padding: 14px 24px;
+  border-radius: 999px;
+  border: none;
+  background: var(--lb-flow);
+  color: var(--lb-ink);
+  cursor: pointer;
+  box-shadow: var(--lb-halo);
+  transition: filter .2s, transform .12s;
+}
+.lb-btn-primary:hover { filter: brightness(1.08); }
+.lb-btn-primary:active { transform: translateY(1px); }
+
+/* Метка-подпись */
+.lb-label {
+  font: 500 11.5px/1 var(--lb-mono);
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--lb-faint);
+}
+
+/* Курсор участника */
+.lb-cursor {
+  font: 600 11px/1 var(--lb-mono);
+  padding: 4px 8px;
+  border-radius: 999px;
+  color: var(--lb-ink);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+:focus-visible { outline: 2px solid var(--lb-teal); outline-offset: 3px; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    transition-duration: .01ms !important;
+  }
+}
+
+/* Вуаль первого экрана: текст читается поверх штрихов, свечение остаётся справа */
+.lb-hero-veil {
+  background:
+    linear-gradient(100deg, #07070a 4%, rgba(7, 7, 10, .92) 32%, rgba(7, 7, 10, .45) 56%, transparent 76%),
+    radial-gradient(58% 48% at 18% 16%, rgba(94, 234, 212, .16), transparent 62%),
+    radial-gradient(52% 46% at 82% 78%, rgba(217, 70, 239, .17), transparent 62%);
+}
+
+:root[data-mode="day"] .lb-hero-veil {
+  background:
+    linear-gradient(100deg, #f4f4f7 4%, rgba(244, 244, 247, .93) 32%, rgba(244, 244, 247, .5) 56%, transparent 76%),
+    radial-gradient(58% 48% at 18% 16%, rgba(13, 148, 136, .10), transparent 62%),
+    radial-gradient(52% 46% at 82% 78%, rgba(192, 38, 211, .10), transparent 62%);
+}

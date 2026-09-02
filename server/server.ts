@@ -22,10 +22,18 @@ const io = new SocketIOServer(server, {
     transports: ['websocket', 'polling'],
 });
 
+/** Штрих доски: идентификатор нужен, чтобы участники не затирали линии друг друга. */
+interface Stroke {
+    id: string;
+    points: number[];
+    color?: string;
+    width?: number;
+}
+
 // Хранилище состояния комнат
 interface RoomState {
     text: string;
-    lines: { points: number[] }[];
+    lines: Stroke[];
     users: Set<string>;
 }
 
@@ -85,7 +93,7 @@ io.on('connection', (socket) => {
     });
 
     // Получение новой линии при рисовании
-    socket.on('drawLine', (data: { roomId: string; line: { points: number[] } }) => {
+    socket.on('drawLine', (data: { roomId: string; line: Stroke }) => {
         const room = rooms.get(data.roomId);
         if (room) {
             room.lines.push(data.line);
@@ -93,9 +101,22 @@ io.on('connection', (socket) => {
         }
     });
 
-    // Обновление текущей линии при рисовании
-    socket.on('updateLine', (data: { roomId: string; points: number[] }) => {
-        socket.to(data.roomId).emit('updateLine', data.points);
+    // Обновление ведущегося штриха: адресуем по id, иначе при одновременном
+    // рисовании точки уходят в чужую линию
+    socket.on('updateLine', (data: { roomId: string; id: string; points: number[] }) => {
+        const room = rooms.get(data.roomId);
+        if (!room) return;
+        const stroke = room.lines.find(l => l.id === data.id);
+        if (stroke) stroke.points = data.points;
+        socket.to(data.roomId).emit('updateLine', { id: data.id, points: data.points });
+    });
+
+    // Удаление одного штриха — ластик
+    socket.on('removeLine', (data: { roomId: string; id: string }) => {
+        const room = rooms.get(data.roomId);
+        if (!room) return;
+        room.lines = room.lines.filter(l => l.id !== data.id);
+        socket.to(data.roomId).emit('removeLine', data.id);
     });
 
     // Очистка рисунков

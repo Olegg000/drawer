@@ -1,14 +1,11 @@
-import React, { Dispatch, SetStateAction, useEffect, useRef, useState, useCallback } from "react";
+import React, { Dispatch, SetStateAction, useCallback, useEffect, useRef, useState } from "react";
 import { useTheme } from "styled-components";
-import { darkTheme } from "../types/theme";
-import { Sun } from "../sourses/Sun";
-import { Moon } from "../sourses/Moon";
-import Switch from "react-switch";
 import { Stage, Layer, Line } from "react-konva";
 import { KonvaEventObject } from "konva/lib/Node";
+import Konva from "konva";
 import { getRandomPhrase } from "../utils/getRandomPhrase";
 import { motion } from "framer-motion";
-import { ArrowLeft, Users } from "lucide-react";
+import { ArrowLeft, Download, Eraser, Moon, PenLine, Sun, Trash2, Undo2, Users } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ServerABI, RoomState } from "../abi/ServerABI";
 
@@ -16,26 +13,49 @@ interface DrawPageProps {
     setIsDark: Dispatch<SetStateAction<boolean>>;
 }
 
+/** Штрих: у каждого свой идентификатор, цвет и толщина — иначе участники затирают линии друг друга. */
+export interface Stroke {
+    id: string;
+    points: number[];
+    color?: string;
+    width?: number;
+}
+
+const WIDTHS = [2, 4, 8];
+const ERASER_RADIUS = 14;
+
+const newId = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+
 export const DrawPage: React.FC<DrawPageProps> = ({ setIsDark }) => {
     const { roomId } = useParams<{ roomId: string }>();
     const [text, setText] = useState<string>('');
-    const [lines, setLines] = useState<{ points: number[] }[]>([]);
+    const [lines, setLines] = useState<Stroke[]>([]);
     const [isDrawing, setIsDrawing] = useState(false);
-    const [drawingMode, setDrawingMode] = useState(false);
-    const [isDarkState, setIsDarkState] = useState(localStorage.getItem('theme') === 'dark');
+    const [drawingMode, setDrawingMode] = useState(true);
+    const [tool, setTool] = useState<'pen' | 'eraser'>('pen');
+    const [isDarkState, setIsDarkState] = useState(localStorage.getItem('theme') !== 'light');
     const [dimensions, setDimensions] = useState({ width: window.innerWidth, height: window.innerHeight });
-    const [undoStack, setUndoStack] = useState<{ points: number[] }[]>([]);
-    const [redoStack, setRedoStack] = useState<{ points: number[] }[]>([]);
+    const [undoStack, setUndoStack] = useState<Stroke[]>([]);
     const [phrase] = useState<string>(() => getRandomPhrase());
     const [userCount, setUserCount] = useState(1);
     const [isNetworkMode, setIsNetworkMode] = useState(false);
     const [isServerDown, setIsServerDown] = useState(false);
+    const [copied, setCopied] = useState(false);
     const navigate = useNavigate();
 
     const textRef = useRef<HTMLTextAreaElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
+    const stageRef = useRef<Konva.Stage>(null);
     const theme = useTheme();
     const isRemoteUpdate = useRef(false);
+
+    const [color, setColor] = useState<string>(theme.inks[0]);
+    const [width, setWidth] = useState<number>(WIDTHS[1]);
+
+    // Палитра зависит от режима: ночные цвета на светлой бумаге не читаются
+    useEffect(() => {
+        setColor(prev => (theme.inks.includes(prev) ? prev : theme.inks[0]));
+    }, [theme]);
 
     // Подключение к комнате при монтировании
     useEffect(() => {
@@ -43,51 +63,39 @@ export const DrawPage: React.FC<DrawPageProps> = ({ setIsDark }) => {
             setIsNetworkMode(true);
             ServerABI.connect();
 
-            // Даем время на подключение
             const joinTimeout = setTimeout(() => {
                 ServerABI.joinRoom(roomId);
             }, 500);
 
-            // Обработчик получения состояния комнаты
             const handleRoomState = (state: RoomState) => {
                 isRemoteUpdate.current = true;
                 setText(state.text);
-                setLines(state.lines);
+                setLines(state.lines as Stroke[]);
                 setUserCount(state.userCount);
                 isRemoteUpdate.current = false;
             };
 
-            // Обработчик получения текста от других пользователей
             const handleText = (newText: string) => {
                 isRemoteUpdate.current = true;
                 setText(newText);
                 isRemoteUpdate.current = false;
             };
 
-            // Обработчик получения новой линии
-            const handleDrawLine = (line: { points: number[] }) => {
+            const handleDrawLine = (line: Stroke) => {
                 setLines(prev => [...prev, line]);
             };
 
-            // Обработчик обновления текущей линии
-            const handleUpdateLine = (points: number[]) => {
-                setLines(prev => {
-                    if (prev.length === 0) return prev;
-                    const updated = [...prev];
-                    updated[updated.length - 1] = { points };
-                    return updated;
-                });
+            // Обновляем именно тот штрих, который ведёт автор, а не последний в списке
+            const handleUpdateLine = (payload: { id: string; points: number[] }) => {
+                setLines(prev => prev.map(l => (l.id === payload.id ? { ...l, points: payload.points } : l)));
             };
 
-            // Обработчик очистки линий
-            const handleClearLines = () => {
-                setLines([]);
+            const handleRemoveLine = (id: string) => {
+                setLines(prev => prev.filter(l => l.id !== id));
             };
 
-            // Обработчик количества пользователей
-            const handleUserCount = (count: number) => {
-                setUserCount(count);
-            };
+            const handleClearLines = () => setLines([]);
+            const handleUserCount = (count: number) => setUserCount(count);
 
             // Сервер может быть не поднят (например, на статическом хостинге):
             // ловим это событиями сокета и одной проверкой по таймауту.
@@ -101,6 +109,7 @@ export const DrawPage: React.FC<DrawPageProps> = ({ setIsDark }) => {
             ServerABI.on('text', handleText);
             ServerABI.on('drawLine', handleDrawLine);
             ServerABI.on('updateLine', handleUpdateLine);
+            ServerABI.on('removeLine', handleRemoveLine);
             ServerABI.on('clearLines', handleClearLines);
             ServerABI.on('userCount', handleUserCount);
 
@@ -113,12 +122,12 @@ export const DrawPage: React.FC<DrawPageProps> = ({ setIsDark }) => {
                 ServerABI.off('text', handleText);
                 ServerABI.off('drawLine', handleDrawLine);
                 ServerABI.off('updateLine', handleUpdateLine);
+                ServerABI.off('removeLine', handleRemoveLine);
                 ServerABI.off('clearLines', handleClearLines);
                 ServerABI.off('userCount', handleUserCount);
                 ServerABI.leaveRoom();
             };
         } else {
-            // Локальный режим - загружаем из localStorage
             setIsNetworkMode(false);
             setIsServerDown(false);
             setText(localStorage.getItem('text') || '');
@@ -128,7 +137,6 @@ export const DrawPage: React.FC<DrawPageProps> = ({ setIsDark }) => {
     // Сохранение текста (локально или по сети)
     useEffect(() => {
         if (isRemoteUpdate.current) return;
-
         if (isNetworkMode && roomId) {
             ServerABI.sendText(text);
         } else {
@@ -136,51 +144,14 @@ export const DrawPage: React.FC<DrawPageProps> = ({ setIsDark }) => {
         }
     }, [text, isNetworkMode, roomId]);
 
-    // Завершаем рисование при уходе мышки
-    const handleStageMouseLeave = (e: KonvaEventObject<MouseEvent>) => {
-        if (!isDrawing) return;
-        const stage = e.target.getStage();
-        if (!stage) return;
-
-        const container = stage.container().getBoundingClientRect();
-        const x = Math.max(0, Math.min(e.evt.clientX - container.left, dimensions.width));
-        const y = Math.max(0, Math.min(e.evt.clientY - container.top, dimensions.height));
-
-        setLines(prev => {
-            const last = prev[prev.length - 1];
-            const newPoints = [...last.points, x, y];
-            const updatedLine = { points: newPoints };
-
-            // Отправляем финальную линию по сети
-            if (isNetworkMode) {
-                ServerABI.sendUpdateLine(newPoints);
-            }
-
-            return [...prev.slice(0, -1), updatedLine];
-        });
-
-        setIsDrawing(false);
-    };
-
-    // Ловим mouseout за пределы окна
-    useEffect(() => {
-        const handleWindowMouseOut = (e: MouseEvent) => {
-            if (e.relatedTarget === null && isDrawing) {
-                setIsDrawing(false);
-            }
-        };
-        window.addEventListener("mouseout", handleWindowMouseOut);
-        return () => window.removeEventListener("mouseout", handleWindowMouseOut);
-    }, [isDrawing]);
-
-    // Размер textarea
+    // Размер textarea задаёт высоту холста
     useEffect(() => {
         if (textRef.current) {
             textRef.current.style.height = "auto";
-            textRef.current.style.height = `${textRef.current.scrollHeight - 80}px`;
+            textRef.current.style.height = `${Math.max(textRef.current.scrollHeight, 240)}px`;
             setDimensions({
                 width: containerRef.current?.clientWidth || window.innerWidth,
-                height: textRef.current.scrollHeight + 100,
+                height: Math.max(textRef.current.scrollHeight + 160, window.innerHeight - 90),
             });
         }
     }, [text]);
@@ -191,139 +162,242 @@ export const DrawPage: React.FC<DrawPageProps> = ({ setIsDark }) => {
         const container = containerRef.current;
         if (!container) return;
         const observer = new ResizeObserver(([entry]) => {
-            const width = entry.contentRect.width;
-            if (width > 0) {
-                setDimensions(prev => (prev.width === width ? prev : { ...prev, width }));
-            }
+            const w = entry.contentRect.width;
+            if (w > 0) setDimensions(prev => (prev.width === w ? prev : { ...prev, width: w }));
         });
         observer.observe(container);
         return () => observer.disconnect();
     }, []);
 
-    // undo/redo
+    const removeStroke = useCallback((id: string) => {
+        setLines(prev => prev.filter(l => l.id !== id));
+        if (isNetworkMode) ServerABI.sendRemoveLine(id);
+    }, [isNetworkMode]);
+
+    // undo / redo
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
             const isMac = navigator.platform.toUpperCase().includes('MAC');
             const ctrlKey = isMac ? e.metaKey : e.ctrlKey;
-
             if (document.activeElement?.tagName === 'TEXTAREA') return;
 
             if (ctrlKey && (e.key === 'z' || e.key === 'я')) {
                 e.preventDefault();
                 if (lines.length) {
-                    const newLines = [...lines];
-                    const undone = newLines.pop()!;
-                    setLines(newLines);
+                    const undone = lines[lines.length - 1];
+                    removeStroke(undone.id);
                     setUndoStack(prev => [...prev.slice(-9), undone]);
-                    setRedoStack([]);
                 }
             }
             if (ctrlKey && (e.key === 'y' || e.key === 'н')) {
                 e.preventDefault();
                 if (undoStack.length) {
-                    const newUndo = [...undoStack];
-                    const restored = newUndo.pop()!;
+                    const restored = undoStack[undoStack.length - 1];
                     setLines(prev => [...prev, restored]);
-                    setUndoStack(newUndo);
+                    setUndoStack(prev => prev.slice(0, -1));
+                    if (isNetworkMode) ServerABI.sendDrawLine(restored);
                 }
             }
+            // Инструменты под рукой, как во взрослых редакторах
+            if (!ctrlKey && (e.key === 'e' || e.key === 'у')) setTool('eraser');
+            if (!ctrlKey && (e.key === 'b' || e.key === 'и')) setTool('pen');
         };
         window.addEventListener("keydown", handleKeyDown);
         return () => window.removeEventListener("keydown", handleKeyDown);
-    }, [lines, undoStack]);
+    }, [lines, undoStack, isNetworkMode, removeStroke]);
 
-    // mouse down — начинаем новую линию
-    const handleMouseDown = (e: KonvaEventObject<MouseEvent>) => {
+    /** Штрих, попавший под ластик: ищем ближайшую точку любой линии. */
+    const strokeAt = (x: number, y: number): Stroke | undefined =>
+        [...lines].reverse().find(l => {
+            for (let i = 0; i < l.points.length; i += 2) {
+                if (Math.hypot(l.points[i] - x, l.points[i + 1] - y) <= ERASER_RADIUS + (l.width ?? 2)) return true;
+            }
+            return false;
+        });
+
+    const pointerPos = (e: KonvaEventObject<MouseEvent | TouchEvent>) =>
+        e.target.getStage()?.getPointerPosition();
+
+    const handlePointerDown = (e: KonvaEventObject<MouseEvent | TouchEvent>) => {
         if (!drawingMode) return;
-        const stage = e.target.getStage();
-        const pos = stage?.getPointerPosition();
+        const pos = pointerPos(e);
         if (!pos) return;
 
+        if (tool === 'eraser') {
+            const victim = strokeAt(pos.x, pos.y);
+            if (victim) removeStroke(victim.id);
+            setIsDrawing(true);
+            return;
+        }
+
         setIsDrawing(true);
-        const newLine = { points: [pos.x, pos.y] };
+        const newLine: Stroke = { id: newId(), points: [pos.x, pos.y], color, width };
         setLines(prev => [...prev, newLine]);
         setUndoStack([]);
-        setRedoStack([]);
-
-        // Отправляем начало линии по сети
-        if (isNetworkMode) {
-            ServerABI.sendDrawLine(newLine);
-        }
+        if (isNetworkMode) ServerABI.sendDrawLine(newLine);
     };
 
-    // mouse move — дописываем точки
-    const handleMouseMove = (e: KonvaEventObject<MouseEvent>) => {
+    const handlePointerMove = (e: KonvaEventObject<MouseEvent | TouchEvent>) => {
         if (!isDrawing || !drawingMode) return;
-        const stage = e.target.getStage();
-        const point = stage?.getPointerPosition();
-        if (!point) return;
+        const pos = pointerPos(e);
+        if (!pos) return;
+
+        if (tool === 'eraser') {
+            const victim = strokeAt(pos.x, pos.y);
+            if (victim) removeStroke(victim.id);
+            return;
+        }
 
         setLines(prev => {
+            if (!prev.length) return prev;
             const last = prev[prev.length - 1];
-            const newPoints = [...last.points, point.x, point.y];
-
-            // Отправляем обновление по сети
-            if (isNetworkMode) {
-                ServerABI.sendUpdateLine(newPoints);
-            }
-
-            return [...prev.slice(0, -1), { points: newPoints }];
+            const points = [...last.points, pos.x, pos.y];
+            if (isNetworkMode) ServerABI.sendUpdateLine(last.id, points);
+            return [...prev.slice(0, -1), { ...last, points }];
         });
     };
 
-    // mouse up — завершаем
-    const handleMouseUp = () => {
-        if (isDrawing) setIsDrawing(false);
-    };
+    const handlePointerUp = () => setIsDrawing(false);
 
-    // Очистка рисунков
     const handleClearLines = () => {
         setLines([]);
-        if (isNetworkMode) {
-            ServerABI.sendClearLines();
+        setUndoStack([]);
+        if (isNetworkMode) ServerABI.sendClearLines();
+    };
+
+    /** Скачиваем рисунок с фоном текущего режима — прозрачный PNG выглядит сломанным. */
+    const handleExport = () => {
+        const stage = stageRef.current;
+        if (!stage) return;
+        const source = stage.toCanvas({ pixelRatio: 2 } as any) as HTMLCanvasElement;
+        const out = document.createElement('canvas');
+        out.width = source.width;
+        out.height = source.height;
+        const ctx = out.getContext('2d');
+        if (!ctx) return;
+        ctx.fillStyle = theme.bg;
+        ctx.fillRect(0, 0, out.width, out.height);
+        ctx.drawImage(source, 0, 0);
+        const link = document.createElement('a');
+        link.download = `drawer-${roomId ?? 'local'}.png`;
+        link.href = out.toDataURL('image/png');
+        link.click();
+    };
+
+    const handleShare = async () => {
+        try {
+            await navigator.clipboard.writeText(window.location.href);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 1800);
+        } catch {
+            setCopied(false);
         }
     };
 
+    const toggleTheme = () => {
+        setIsDark(!isDarkState);
+        setIsDarkState(!isDarkState);
+    };
+
+    const chip: React.CSSProperties = {
+        display: "inline-flex", alignItems: "center", gap: ".45rem",
+        padding: ".5rem .8rem", borderRadius: 999,
+        font: "500 .78rem/1 var(--lb-mono)", color: "var(--lb-dim)",
+    };
+
+    const toolBtn = (active: boolean): React.CSSProperties => ({
+        display: "grid", placeItems: "center",
+        width: 38, height: 38, borderRadius: 11, cursor: "pointer",
+        border: `1px solid ${active ? "transparent" : "var(--lb-line)"}`,
+        background: active ? "var(--lb-flow)" : "transparent",
+        color: active ? "var(--lb-ink)" : "var(--lb-dim)",
+        transition: "background .18s, color .18s, border-color .18s",
+    });
+
     return (
-        <div className="notepad-holder" style={{ position: "fixed", width: "100%", height: "100vh" }}>
+        <div style={{
+            position: "fixed", inset: 0, display: "flex", flexDirection: "column",
+            background: "var(--lb-void)", color: "var(--lb-text)",
+        }}>
+            {/* ── Верхняя панель ───────────────────────────── */}
+            <header style={{
+                position: "relative", zIndex: 10,
+                display: "flex", alignItems: "center", gap: ".6rem", flexWrap: "wrap",
+                padding: ".7rem clamp(.7rem, 2.5vw, 1.4rem)",
+                borderBottom: "1px solid var(--lb-line)",
+                background: "var(--lb-veil)",
+            }}>
+                <button
+                    className="lb-glass"
+                    onClick={() => navigate('/')}
+                    aria-label="На главную"
+                    style={{ ...toolBtn(false), background: "var(--lb-surface)" }}
+                >
+                    <ArrowLeft size={18} />
+                </button>
+
+                <span style={{ font: "800 1rem/1 var(--lb-ui)", letterSpacing: "-.02em", marginRight: ".2rem" }}>
+                    draw<span className="lb-flow-text">er</span>
+                </span>
+
+                {isNetworkMode ? (
+                    <>
+                        <button className="lb-glass" onClick={handleShare} style={{ ...chip, cursor: "pointer", border: "1px solid var(--lb-line)" }}>
+                            {copied ? "ссылка скопирована" : `комната ${roomId?.slice(0, 10)}…`}
+                        </button>
+                        <span className="lb-glass" style={{ ...chip, color: "var(--lb-teal)" }}>
+                            <Users size={14} /> {userCount} онлайн
+                        </span>
+                    </>
+                ) : (
+                    <span className="lb-glass" style={chip}>локальный режим</span>
+                )}
+
+                <button
+                    className="lb-glass"
+                    onClick={toggleTheme}
+                    aria-label={isDarkState ? "Дневной режим" : "Ночной режим"}
+                    style={{ ...toolBtn(false), marginLeft: "auto", background: "var(--lb-surface)" }}
+                >
+                    {isDarkState ? <Sun size={17} /> : <Moon size={17} />}
+                </button>
+            </header>
+
+            {/* ── Плашка про отсутствующий сервер ──────────── */}
             {isNetworkMode && isServerDown && (
-                <div style={{
-                    position: "absolute", zIndex: 20, top: "1rem", left: "50%",
-                    transform: "translateX(-50%)", width: "min(560px, 92%)",
+                <div className="lb-glass" style={{
+                    position: "absolute", zIndex: 20, top: "4.6rem", left: "50%",
+                    transform: "translateX(-50%)", width: "min(34rem, 92%)",
                     display: "flex", alignItems: "center", gap: "1rem", flexWrap: "wrap",
-                    padding: "0.9rem 1.2rem",
-                    background: "var(--lv-surface)", color: "var(--lv-ink)",
-                    border: `1px solid var(--lv-line)`, borderLeft: "4px solid var(--lv-warn)",
-                    borderRadius: "var(--lv-radius)", boxShadow: "var(--lv-shadow)",
-                    fontFamily: "var(--lv-body)", fontSize: "0.95rem",
+                    padding: ".9rem 1.1rem", borderLeft: "3px solid var(--lb-amber)",
+                    font: "400 .92rem/1.5 var(--lb-ui)", boxShadow: "var(--lb-lift)",
                 }}>
-                    <span style={{ flex: "1 1 15rem" }}>
+                    <span style={{ flex: "1 1 14rem", color: "var(--lb-dim)" }}>
                         Сервер комнат не подключён — синхронизации не будет.
-                        Доступен локальный режим: рисунок и текст остаются в браузере.
+                        Локальный режим работает без него.
                     </span>
-                    <button
-                        onClick={() => navigate('/Draw/local')}
-                        style={{
-                            padding: "0.55rem 1.1rem", border: "none",
-                            borderRadius: "100px", cursor: "pointer",
-                            background: "var(--lv-accent)", color: "var(--lv-paper)",
-                            fontFamily: "var(--lv-body)", fontWeight: 600, fontSize: "0.95rem",
-                        }}
-                    >
+                    <button className="lb-btn-primary" style={{ padding: "10px 16px", fontSize: ".85rem" }}
+                        onClick={() => navigate('/Draw/local')}>
                         Локальный режим
                     </button>
                 </div>
             )}
-            <div className="notepad" ref={containerRef} style={{ position: "relative", width: "100%", overflowY: 'auto', overflowX: 'hidden' }}>
+
+            {/* ── Холст и текст ────────────────────────────── */}
+            <div
+                ref={containerRef}
+                style={{ position: "relative", flex: 1, overflowY: "auto", overflowX: "hidden" }}
+            >
                 <textarea
                     ref={textRef}
                     style={{
-                        width: "100%", padding: "1rem",
-                        background: isDarkState ? "#121212" : "#ffffff",
-                        color: isDarkState ? "#f5f5f5" : "#111",
-                        fontSize: "calc(14px + 1vmin)",
-                        transition: 'all 0.4s ease-in-out',
-                        border: "none", outline: "none", resize: "none", position: "relative",
+                        display: "block", width: "100%", minHeight: "15rem",
+                        padding: "1.4rem clamp(1rem, 3vw, 2rem) 7rem",
+                        background: "transparent", color: "var(--lb-text)",
+                        font: "400 clamp(1rem, 1.1rem + .3vw, 1.25rem)/1.7 var(--lb-ui)",
+                        border: "none", outline: "none", resize: "none",
+                        position: "relative", zIndex: 1,
+                        caretColor: color,
                     }}
                     value={text}
                     onChange={e => setText(e.target.value)}
@@ -331,99 +405,122 @@ export const DrawPage: React.FC<DrawPageProps> = ({ setIsDark }) => {
                 />
 
                 <Stage
+                    ref={stageRef}
                     width={dimensions.width}
                     height={dimensions.height}
-                    style={{ position: "absolute", top: 0, left: 0, pointerEvents: drawingMode ? "auto" : "none" }}
-                    onMouseDown={handleMouseDown}
-                    onMouseMove={handleMouseMove}
-                    onMouseUp={handleMouseUp}
-                    onMouseLeave={handleStageMouseLeave}
+                    style={{
+                        position: "absolute", top: 0, left: 0, zIndex: 2,
+                        pointerEvents: drawingMode ? "auto" : "none",
+                        cursor: tool === 'eraser' ? "cell" : "crosshair",
+                        touchAction: "none",
+                    }}
+                    onMouseDown={handlePointerDown}
+                    onMouseMove={handlePointerMove}
+                    onMouseUp={handlePointerUp}
+                    onMouseLeave={handlePointerUp}
+                    onTouchStart={handlePointerDown}
+                    onTouchMove={handlePointerMove}
+                    onTouchEnd={handlePointerUp}
                 >
                     <Layer>
-                        {lines.map((line, i) => (
+                        {lines.map(line => (
                             <Line
-                                key={i}
+                                key={line.id}
                                 points={line.points}
-                                stroke={theme === darkTheme ? "aqua" : "#000000"}
-                                strokeWidth={2}
-                                tension={0.5}
+                                stroke={line.color ?? theme.inks[0]}
+                                strokeWidth={line.width ?? 2}
+                                tension={0.4}
                                 lineCap="round"
+                                lineJoin="round"
+                                shadowColor={line.color ?? theme.inks[0]}
+                                shadowBlur={theme.glow}
+                                shadowOpacity={theme.glow ? 0.9 : 0}
+                                listening={false}
                             />
                         ))}
                     </Layer>
                 </Stage>
+            </div>
 
-                <div className="notepad-label-container" style={{
-                    width: '100%', borderBottom: isDarkState ? '3px solid #444' : '3px solid #ccc',
-                    boxShadow: isDarkState ? '0px 4px 10px rgba(0,0,0,0.6)' : '0px 4px 12px rgba(0,0,0,0.1)',
-                    borderRadius: '0 0 20px 20px', display: 'flex',
-                    justifyContent: 'space-between', alignItems: 'center',
-                    transition: 'all 0.4s ease-in-out', position: "sticky",
-                    background: isDarkState ? "#1f1f1f" : "#f9f9f9",
-                }}>
-                    <motion.div
-                        initial={{ opacity: 0, x: 30 }}
-                        animate={{ opacity: 1, x: [30, 0] }}
-                        transition={{ duration: 2 }}
+            {/* ── Панель инструментов ──────────────────────── */}
+            {/* Обёртка центрирует панель: у motion.div свой transform, и translateX(-50%) он бы перебил */}
+            <div style={{
+                position: "absolute", zIndex: 15, left: 0, right: 0,
+                bottom: "clamp(.8rem, 2.5vw, 1.6rem)",
+                display: "flex", justifyContent: "center",
+                padding: "0 .8rem", pointerEvents: "none",
+            }}>
+            <motion.div
+                initial={{ opacity: 0, y: 14 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: .45, ease: "easeOut" }}
+                className="lb-glass"
+                style={{
+                    display: "flex", alignItems: "center", gap: ".45rem", flexWrap: "wrap",
+                    justifyContent: "center", pointerEvents: "auto",
+                    padding: ".5rem .6rem", maxWidth: "100%",
+                    boxShadow: "var(--lb-lift)",
+                }}
+            >
+                <button style={toolBtn(drawingMode && tool === 'pen')} title="Перо (B)"
+                    onClick={() => { setDrawingMode(true); setTool('pen'); }}>
+                    <PenLine size={17} />
+                </button>
+                <button style={toolBtn(drawingMode && tool === 'eraser')} title="Ластик (E)"
+                    onClick={() => { setDrawingMode(true); setTool('eraser'); }}>
+                    <Eraser size={17} />
+                </button>
+
+                <span style={{ width: 1, height: 26, background: "var(--lb-line)", margin: "0 .25rem" }} />
+
+                {theme.inks.map(ink => (
+                    <button
+                        key={ink}
+                        title="Цвет штриха"
+                        onClick={() => { setColor(ink); setTool('pen'); setDrawingMode(true); }}
                         style={{
-                            display: "inline-block",
-                            padding: "5px",
-                            borderRadius: "10px",
-                            cursor: "pointer",
-                            marginTop: "5px",
-                            color: "#999",
+                            width: 24, height: 24, borderRadius: "50%", cursor: "pointer",
+                            background: ink, border: color === ink ? "2px solid var(--lb-text)" : "2px solid transparent",
+                            boxShadow: color === ink && theme.glow ? `0 0 12px ${ink}` : "none",
+                            transition: "box-shadow .18s, border-color .18s",
                         }}
-                        onClick={() => navigate('/')}
-                        onMouseEnter={(e) => (e.currentTarget.style.color = "#c3c2c2")}
-                        onMouseLeave={(e) => (e.currentTarget.style.color = "#999")}
+                    />
+                ))}
+
+                <span style={{ width: 1, height: 26, background: "var(--lb-line)", margin: "0 .25rem" }} />
+
+                {WIDTHS.map(w => (
+                    <button
+                        key={w}
+                        title={`Толщина ${w}`}
+                        onClick={() => setWidth(w)}
+                        style={{ ...toolBtn(width === w), width: 32, height: 32 }}
                     >
-                        <ArrowLeft size={60} />
-                    </motion.div>
-
-                    {isNetworkMode && (
-                        <div style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '8px',
-                            padding: '8px 16px',
-                            background: isDarkState ? '#2a2a2a' : '#e8e8e8',
-                            borderRadius: '20px',
-                            color: isDarkState ? '#4ade80' : '#16a34a'
-                        }}>
-                            <Users size={20} />
-                            <span style={{ fontWeight: 600 }}>{userCount}</span>
-                            <span style={{ fontSize: '0.9rem', opacity: 0.8 }}>онлайн</span>
-                        </div>
-                    )}
-
-                    <button onClick={handleClearLines}>Очистить рисование</button>
-                    <button onClick={() => setDrawingMode(!drawingMode)}>
-                        {drawingMode ? 'Остановить рисование' : 'Начать рисовать'}
-                    </button>
-
-                    {isNetworkMode && roomId && (
                         <span style={{
-                            fontSize: '0.85rem',
-                            opacity: 0.7,
-                            fontFamily: 'monospace'
-                        }}>
-                            Комната: {roomId.slice(0, 8)}...
-                        </span>
-                    )}
+                            display: "block", width: w + 6, height: w + 6, borderRadius: "50%",
+                            background: width === w ? "var(--lb-ink)" : "var(--lb-dim)",
+                        }} />
+                    </button>
+                ))}
 
-                    <label style={{ margin: "4px 10px 4px 4px", display: 'flex', alignItems: 'center' }}>
-                        <span style={{ fontSize: "calc(13px + 1vmin)", marginRight: "10px" }}>Сменить тему:</span>
-                        <Switch
-                            onChange={() => { setIsDark(!isDarkState); setIsDarkState(!isDarkState); }}
-                            checked={isDarkState}
-                            checkedIcon={<Moon style={{ marginLeft: "4px", marginTop: "2px" }} />}
-                            uncheckedIcon={<Sun style={{ marginTop: "2px", marginLeft: "6px", color: "#fff7d6" }} />}
-                            height={40} width={80} handleDiameter={30}
-                            offHandleColor={'#ffcd06'} onHandleColor={'#80a1ec'}
-                            onColor={'#3a70e4'} offColor={'#cfc393'} activeBoxShadow={'0 0 4px 6px #ac8ed3'}
-                        />
-                    </label>
-                </div>
+                <span style={{ width: 1, height: 26, background: "var(--lb-line)", margin: "0 .25rem" }} />
+
+                <button style={toolBtn(false)} title="Отменить (Ctrl+Z)"
+                    onClick={() => {
+                        if (!lines.length) return;
+                        const undone = lines[lines.length - 1];
+                        removeStroke(undone.id);
+                        setUndoStack(prev => [...prev.slice(-9), undone]);
+                    }}>
+                    <Undo2 size={17} />
+                </button>
+                <button style={toolBtn(false)} title="Очистить холст" onClick={handleClearLines}>
+                    <Trash2 size={17} />
+                </button>
+                <button style={toolBtn(false)} title="Скачать PNG" onClick={handleExport}>
+                    <Download size={17} />
+                </button>
+            </motion.div>
             </div>
         </div>
     );

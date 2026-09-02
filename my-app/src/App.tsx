@@ -1,9 +1,8 @@
 import * as React from 'react';
 import './App.css';
 import styled, { ThemeProvider } from 'styled-components';
-import { lightTheme, darkTheme } from './types/theme';
-import { useEffect, useState } from "react";
-import Pen from "./sourses/Pen";
+import { lightTheme, darkTheme, BoardTheme } from './types/theme';
+import { useEffect } from "react";
 import { DrawPage } from "./Pages/DrawPage";
 import { HashRouter as Router, Route, Routes } from "react-router-dom";
 import { StartPage } from "./Pages/StartPage";
@@ -11,10 +10,7 @@ import { Provider } from "react-redux";
 import { store } from "./Store/Store";
 
 declare module 'styled-components' {
-    export interface DefaultTheme {
-        bg: string;
-        text: string;
-    }
+    export interface DefaultTheme extends BoardTheme {}
 }
 
 const Container = styled.div`
@@ -27,10 +23,13 @@ const Container = styled.div`
 // Хеш-роутинг: сборка выкладывается на статику (GitHub Pages),
 // где сервер не умеет отдавать index.html на произвольный путь.
 function App() {
-    const [isDark, setIsDark] = React.useState(localStorage.getItem('theme') === 'dark');
+    // «Световая доска» — тёмная по замыслу: день включается только явным выбором
+    const [isDark, setIsDark] = React.useState(localStorage.getItem('theme') !== 'light');
 
     useEffect(() => {
-        isDark ? localStorage.setItem('theme', 'dark') : localStorage.setItem('theme', 'light')
+        localStorage.setItem('theme', isDark ? 'dark' : 'light');
+        // Режим живёт на <html>: CSS-переменные светятся ночью и гаснут днём.
+        document.documentElement.setAttribute('data-mode', isDark ? 'night' : 'day');
     }, [isDark]);
 
     return (

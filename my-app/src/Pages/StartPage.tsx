@@ -1,58 +1,35 @@
 import React, { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { ArrowDown, ArrowUp } from "lucide-react";
-import { useDispatch } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import { ServerABI } from "../abi/ServerABI";
 import { delay } from "../utils/delay";
 import { CreateComponent } from "../Components/CreateComponent";
+import { GlowCanvas } from "../Components/GlowCanvas";
+
+const FEATURES = [
+    { title: "Свой цвет у каждого", text: "Штрихи участников светятся разными цветами — видно, кто что нарисовал." },
+    { title: "Мгновенная синхронизация", text: "Линии и текст расходятся по комнате через WebSocket, без перезагрузок." },
+    { title: "Работает и в одиночку", text: "Локальный режим держит доску в браузере — без сервера и регистрации." },
+    { title: "Ставится как приложение", text: "PWA: доска открывается с рабочего стола и помнит последнюю сессию." },
+];
 
 export const StartPage: React.FC = () => {
     const heroRef = useRef<HTMLDivElement>(null);
     const roomsRef = useRef<HTMLDivElement>(null);
-    const [mockRooms, setMockRooms] = useState<{ id: string; name: string }[]>([]); // Инициализация mockRooms пустым массивом
+    const [mockRooms, setMockRooms] = useState<{ id: string; name: string }[]>([]);
     const [isCreating, setIsCreating] = useState(false);
-    const dispatch = useDispatch();
-
     const navigate = useNavigate();
     const hasConnected = useRef(false);
-
-    // Скроллим вниз к секции с комнатами
-    const handleScrollDown = () => {
-        roomsRef.current?.scrollIntoView({ behavior: "smooth" });
-    };
-
-    // Скроллим вверх к герою
-    const handleScrollUp = () => {
-        heroRef.current?.scrollIntoView({ behavior: "smooth" });
-    };
-
-    // Отключаем стандартное прокручивание, если нужно (иначе можно оставить)
-    useEffect(() => {
-        const preventScroll = (e: Event) => e.preventDefault();
-        window.addEventListener("wheel", preventScroll, { passive: false });
-        window.addEventListener("touchmove", preventScroll, { passive: false });
-        return () => {
-            window.removeEventListener("wheel", preventScroll);
-            window.removeEventListener("touchmove", preventScroll);
-        };
-    }, []);
 
     useEffect(() => {
         const tryConnect = async () => {
             // На статичном хостинге сервера комнат нет — не ждём его двадцать секунд впустую
-            if (!ServerABI.available) return
-            ServerABI.connect()
+            if (!ServerABI.available) return;
+            ServerABI.connect();
             if (!ServerABI.isWork) {
                 for (let i = 0; i < 5; i++) {
-                    if (i == 0) {
-                        await delay(500)
-                    } else {
-                        await delay(5000)
-                    }
-                    if (ServerABI.isWork) {
-                        break;
-                    }
+                    await delay(i === 0 ? 500 : 5000);
+                    if (ServerABI.isWork) break;
                 }
             }
             if (ServerABI.isWork) {
@@ -64,316 +41,225 @@ export const StartPage: React.FC = () => {
                     { id: "5", name: "Комната 5" },
                 ]);
             }
-        }
+        };
         if (!hasConnected.current) {
             hasConnected.current = true;
             tryConnect();
         }
-
     }, []);
 
+    const hasRooms = mockRooms.length > 0;
+
     return (
-        <>
-            <div
+        <div style={{ background: "var(--lb-void)", color: "var(--lb-text)", minHeight: "100vh" }}>
+            {/* ── Первый экран ─────────────────────────────── */}
+            <section
                 ref={heroRef}
                 style={{
                     position: "relative",
-                    width: "100%",
-                    height: "100vh",
+                    minHeight: "100svh",
+                    display: "flex",
+                    flexDirection: "column",
                     overflow: "hidden",
-                    backgroundColor: "black",
-                    fontFamily: '"Space Grotesk", sans-serif',
                 }}
             >
-                <div
-                    style={{
-                        position: "absolute",
-                        top: 0,
-                        left: 0,
-                        width: "100%",
-                        height: "100%",
-                        backgroundImage: "url('background.png')",
-                        backgroundSize: "cover",
-                        backgroundPosition: "center",
-                        zIndex: -1,
-                    }}
+                <GlowCanvas
+                    style={{ position: "absolute", inset: 0, zIndex: 0 }}
                 />
-                <img
-                    src='background.png'
-                    style={{
-                        position: "absolute",
-                        top: 0,
-                        left: 0,
-                        width: "100%",
-                        height: "100%",
-                        objectFit: "cover",
-                    }}
-                />
+                {/* Свет из углов — чтобы холст не выглядел плоским */}
                 <div
+                    aria-hidden
+                    className="lb-hero-veil"
+                    style={{ position: "absolute", inset: 0, zIndex: 1, pointerEvents: "none" }}
+                />
+
+                <header
                     style={{
-                        position: "absolute",
-                        top: "50%",
-                        left: "50%",
-                        transform: "translate(-50%, -50%)",
-                        width: "100%",
-                        textAlign: "center",
-                        color: "white",
-                        padding: "0 1rem",
+                        position: "relative", zIndex: 2,
+                        display: "flex", alignItems: "center", gap: "1rem",
+                        padding: "1.1rem clamp(1rem, 4vw, 3rem)",
                     }}
                 >
-                    <motion.h1
-                        initial={{ opacity: 0, y: -50 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 1 }}
+                    <span style={{ font: "800 1.15rem/1 var(--lb-ui)", letterSpacing: "-.02em" }}>
+                        draw<span className="lb-flow-text">er</span>
+                    </span>
+                    <span
+                        className="lb-glass lb-mono"
                         style={{
-                            fontSize: "clamp(4rem, 9vw, 12rem)",
-                            fontWeight: "800",
-                            lineHeight: "1.1",
-                            letterSpacing: "-0.04em",
-                            textShadow: "2px 2px 8px rgba(0,0,0,0.8)",
-                            marginBottom: "2rem",
+                            marginLeft: "auto", padding: "7px 13px", borderRadius: 999,
+                            fontSize: ".72rem", color: "var(--lb-dim)",
                         }}
                     >
-                        DRAWER
-                    </motion.h1>
+                        {hasRooms ? "сервер комнат на связи" : "локальный режим"}
+                    </span>
+                </header>
 
-                    <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.8 }}
-                        style={{ marginBottom: "2rem" }}
-                    >
-                        <button
-                            onClick={() => navigate('/Draw/local')}
+                <div
+                    style={{
+                        position: "relative", zIndex: 2,
+                        flex: 1, display: "flex", alignItems: "center",
+                        padding: "clamp(1.5rem, 5vw, 4rem) clamp(1rem, 4vw, 3rem) clamp(3rem, 6vw, 5rem)",
+                    }}
+                >
+                    <div style={{ maxWidth: "44rem" }}>
+                        <motion.p
+                            className="lb-label"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            transition={{ duration: .6 }}
+                            style={{ margin: "0 0 1.1rem" }}
+                        >
+                            Совместная доска
+                        </motion.p>
+
+                        <motion.h1
+                            initial={{ opacity: 0, y: 18 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: .7, ease: "easeOut" }}
                             style={{
-                                padding: "1.1rem 3.2rem",
-                                borderRadius: "100px",
-                                border: "none",
-                                background: "var(--lv-accent)",
-                                color: "var(--lv-paper)",
-                                fontFamily: "var(--lv-body)",
-                                fontSize: "1.35rem",
-                                fontWeight: 600,
-                                cursor: "pointer",
-                                boxShadow: "0 10px 30px -10px rgba(0,0,0,0.9)",
+                                font: "800 clamp(2.6rem, 7.5vw, 5.6rem)/1.02 var(--lb-ui)",
+                                letterSpacing: "-.04em",
+                                margin: "0 0 1.2rem",
+                                textWrap: "balance",
                             }}
                         >
-                            Попробовать локально
-                        </button>
-                        <p style={{
-                            fontFamily: "var(--lv-mono)",
-                            fontSize: "0.85rem",
-                            letterSpacing: "0.08em",
-                            textTransform: "uppercase",
-                            color: "rgba(255,255,255,0.6)",
-                            marginTop: "0.9rem",
-                        }}>
-                            Без сервера · рисунок и текст хранятся в браузере
-                        </p>
-                    </motion.div>
+                            Рисуйте <span className="lb-flow-text">светом</span>,<br />вместе и сразу
+                        </motion.h1>
 
-                    <motion.div
-                        initial={{ y: 50 }}
-                        animate={{ y: 0 }}
-                        transition={{ duration: 1 }}
-                        style={{
-                            display: "flex",
-                            flexWrap: "wrap",
-                            justifyContent: "center",
-                            gap: "2rem",
-                            marginBottom: "3rem",
-                        }}
-                    >
-                        {["Создать", "Войти"].map((label) => (
-                            <button
-                                key={label}
-                                style={{
-                                    padding: "1rem 3rem",
-                                    borderRadius: "100px",
-                                    backgroundColor: "rgba(255,255,255,0.04)",
-                                    border: "1px solid rgba(255,255,255,0.1)",
-                                    color: "white",
-                                    width: "250px",
-                                    fontSize: "1.25rem",
-                                    fontWeight: "600",
-                                    backdropFilter: "blur(10px)",
-                                    cursor: "pointer",
-                                }}
-                                onClick={() => {
-                                    if (label == 'Создать') {
-                                        setIsCreating(true);
-                                    }
-                                }}
-                                onMouseEnter={(e) =>
-                                (e.currentTarget.style.backgroundColor =
-                                    "rgba(255,255,255,0.1)")
-                                }
-                                onMouseLeave={(e) =>
-                                (e.currentTarget.style.backgroundColor =
-                                    "rgba(255,255,255,0.04)")
-                                }
-                            >
-                                {label}
+                        <motion.p
+                            initial={{ opacity: 0, y: 14 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: .7, delay: .12 }}
+                            style={{
+                                font: "400 clamp(1rem, 1.9vw, 1.2rem)/1.6 var(--lb-ui)",
+                                color: "var(--lb-dim)", maxWidth: "34rem", margin: "0 0 2rem",
+                            }}
+                        >
+                            Общий холст и общий текст в одной вкладке. Каждый участник рисует
+                            своим цветом, линии загораются у всех одновременно.
+                        </motion.p>
+
+                        <motion.div
+                            initial={{ opacity: 0, y: 12 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: .7, delay: .22 }}
+                            style={{ display: "flex", flexWrap: "wrap", gap: ".85rem", marginBottom: "1.1rem" }}
+                        >
+                            <button className="lb-btn-primary" onClick={() => navigate("/Draw/local")}>
+                                Открыть доску
                             </button>
-                        ))}
-                    </motion.div>
+                            <button className="lb-btn" onClick={() => setIsCreating(true)}>
+                                Создать комнату
+                            </button>
+                            {hasRooms && (
+                                <button
+                                    className="lb-btn"
+                                    onClick={() => roomsRef.current?.scrollIntoView({ behavior: "smooth" })}
+                                >
+                                    Открытые комнаты
+                                </button>
+                            )}
+                        </motion.div>
 
-                    <motion.div
-                        initial={{ opacity: 0, y: 30 }}
-                        animate={{ opacity: 0.6, y: [30, -15, 170] }}
-                        transition={{ duration: 2 }}
-                        style={{
-                            display: "inline-block",
-                            padding: "5px",
-                            margin: "50px",
-                            borderRadius: "10px",
-                            cursor: "pointer",
-                            color: "#999",
-                        }}
-                        onClick={handleScrollDown}
-                        onMouseEnter={(e) =>
-                            (e.currentTarget.style.color = "#c3c2c2")
-                        }
-                        onMouseLeave={(e) =>
-                            (e.currentTarget.style.color = "#999")
-                        }
-                    >
-                        <ArrowDown size={60} />
-                    </motion.div>
-
+                        <p className="lb-mono" style={{ fontSize: ".78rem", color: "var(--lb-faint)", margin: 0 }}>
+                            {hasRooms
+                                ? "Комнаты синхронизируются через WebSocket"
+                                : "Без сервера и регистрации · рисунок и текст остаются в браузере"}
+                        </p>
+                    </div>
                 </div>
-                {isCreating && (
-                    <CreateComponent style={{
-                        borderRadius: "50px",
-                        backdropFilter: "blur(10px)",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        textAlign: "center",
-                        zIndex: 9999
-                    }} className='card' closeCreate={() => { setIsCreating(!isCreating) }} />
-                )}
-            </div>
+            </section>
 
-            <div
-                ref={roomsRef}
-                style={{
-                    minHeight: "100vh",
-                    backgroundColor: "#111",
-                    color: "#fff",
-                    padding: "4rem 2rem",
-                    textAlign: "center",
-                    position: "relative",
-                }}
-            >
+            {/* ── Что умеет ────────────────────────────────── */}
+            <section style={{ padding: "clamp(3rem, 7vw, 5.5rem) clamp(1rem, 4vw, 3rem)" }}>
+                <div style={{ maxWidth: "72rem", margin: "0 auto" }}>
+                    <p className="lb-label" style={{ margin: "0 0 .8rem" }}>Возможности</p>
+                    <h2
+                        style={{
+                            font: "800 clamp(1.5rem, 3.4vw, 2.3rem)/1.15 var(--lb-ui)",
+                            letterSpacing: "-.025em", margin: "0 0 2.2rem", textWrap: "balance",
+                        }}
+                    >
+                        Доска, а не белый прямоугольник
+                    </h2>
 
-                <h2 style={{ fontSize: "2.5rem", marginBottom: "2rem" }}>
-                    Последние комнаты
-                </h2>
-
-                {mockRooms.length > 0 ? (
                     <div
                         style={{
-                            display: "flex",
-                            flexDirection: "column",
-                            gap: "1.5rem",
-                            alignItems: "center",
+                            display: "grid",
+                            gridTemplateColumns: "repeat(auto-fit, minmax(15rem, 1fr))",
+                            gap: "1rem",
                         }}
                     >
-                        {mockRooms.map((room) => (
-                            <div
-                                key={room.id}
-                                style={{
-                                    padding: "1rem 2rem",
-                                    backgroundColor: "#222",
-                                    borderRadius: "12px",
-                                    width: "min(400px, 90%)",
-                                    border: "1px solid #333",
-                                    cursor: "pointer",
-                                    fontSize: "1.2rem",
-                                }}
-                                onClick={() => navigate(`/Draw/${room.id}`)}
-                                onMouseEnter={(e) =>
-                                    (e.currentTarget.style.backgroundColor = "rgba(34,34,34,0.54)")
-                                }
-                                onMouseLeave={(e) =>
-                                    (e.currentTarget.style.backgroundColor = "#222")
-                                }
+                        {FEATURES.map((f, i) => (
+                            <motion.article
+                                key={f.title}
+                                className="lb-glass"
+                                initial={{ opacity: 0, y: 16 }}
+                                whileInView={{ opacity: 1, y: 0 }}
+                                viewport={{ once: true, margin: "-60px" }}
+                                transition={{ duration: .5, delay: i * .06 }}
+                                style={{ padding: "1.4rem 1.3rem" }}
                             >
-                                {room.name}
-                            </div>
+                                <h3 style={{ font: "600 1.02rem/1.3 var(--lb-ui)", margin: "0 0 .5rem" }}>
+                                    {f.title}
+                                </h3>
+                                <p style={{ font: "400 .92rem/1.55 var(--lb-ui)", color: "var(--lb-dim)", margin: 0 }}>
+                                    {f.text}
+                                </p>
+                            </motion.article>
                         ))}
-                        <motion.div
-                            initial={{ opacity: 0, y: 30 }}
-                            animate={{ opacity: 0.6, y: [30, -15, 20] }}
-                            transition={{ duration: 2 }}
-                            style={{
-                                bottom: "2rem",
-                                left: "50%",
-                                transform: "translateX(-50%)",
-                                display: "inline-block",
-                                padding: "5px",
-                                marginTop: "10rem",
-                                borderRadius: "10px",
-                                cursor: "pointer",
-                                color: "#999",
-                            }}
-                            onClick={handleScrollUp}
-                            onMouseEnter={(e) =>
-                                (e.currentTarget.style.color = "#c3c2c2")
-                            }
-                            onMouseLeave={(e) =>
-                                (e.currentTarget.style.color = "#999")
-                            }
-                        >
-                            <ArrowUp size={60} />
-                        </motion.div>
                     </div>
-                ) : (<>
-                    <p style={{ fontSize: "1.25rem", color: "#aaa", maxWidth: "40rem", margin: "0 auto" }}>
-                        Комнат нет: сервер Socket.IO не отвечает. Поднимите его локально
-                        (<code style={{ fontFamily: "var(--lv-mono)" }}>server/</code>, порт 8000) — или
-                        {" "}
-                        <button
-                            onClick={() => navigate('/Draw/local')}
+                </div>
+            </section>
+
+            {/* ── Комнаты: только когда сервер отвечает ────── */}
+            {hasRooms && (
+                <section ref={roomsRef} style={{ padding: "0 clamp(1rem, 4vw, 3rem) clamp(3rem, 7vw, 5.5rem)" }}>
+                    <div style={{ maxWidth: "72rem", margin: "0 auto" }}>
+                        <p className="lb-label" style={{ margin: "0 0 .8rem" }}>Открытые комнаты</p>
+                        <div
                             style={{
-                                background: "none", border: "none", padding: 0,
-                                font: "inherit", color: "var(--lv-accent)",
-                                textDecoration: "underline", cursor: "pointer",
+                                display: "grid",
+                                gridTemplateColumns: "repeat(auto-fill, minmax(13rem, 1fr))",
+                                gap: ".9rem",
                             }}
                         >
-                            откройте локальный режим
-                        </button>.
-                    </p>
-                    <motion.div
-                        initial={{ opacity: 0, y: 30 }}
-                        animate={{ opacity: 0.6, y: [30, -15, 20] }}
-                        transition={{ duration: 2 }}
-                        style={{
-                            bottom: "2rem",
-                            left: "50%",
-                            transform: "translateX(-50%)",
-                            display: "inline-block",
-                            padding: "5px",
-                            marginTop: "4rem",
-                            borderRadius: "10px",
-                            cursor: "pointer",
-                            color: "#999",
-                            top: "90px"
-                        }}
-                        onClick={handleScrollUp}
-                        onMouseEnter={(e) =>
-                            (e.currentTarget.style.color = "#c3c2c2")
-                        }
-                        onMouseLeave={(e) =>
-                            (e.currentTarget.style.color = "#999")
-                        }
-                    >
-                        <ArrowUp size={60} />
-                    </motion.div>
-                </>
-                )}
+                            {mockRooms.map(room => (
+                                <button
+                                    key={room.id}
+                                    className="lb-glass"
+                                    onClick={() => navigate(`/Draw/${room.id}`)}
+                                    style={{
+                                        textAlign: "left", cursor: "pointer", color: "var(--lb-text)",
+                                        padding: "1.1rem 1.2rem", font: "600 1rem/1.3 var(--lb-ui)",
+                                    }}
+                                >
+                                    {room.name}
+                                    <span
+                                        className="lb-mono"
+                                        style={{ display: "block", marginTop: ".4rem", fontSize: ".72rem", color: "var(--lb-faint)" }}
+                                    >
+                                        войти →
+                                    </span>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                </section>
+            )}
 
-            </div>
-        </>
+            <footer
+                style={{
+                    borderTop: "1px solid var(--lb-line)",
+                    padding: "1.6rem clamp(1rem, 4vw, 3rem) 2.4rem",
+                }}
+            >
+                <p className="lb-mono" style={{ fontSize: ".74rem", color: "var(--lb-faint)", margin: 0 }}>
+                    Drawer · совместная доска в реальном времени
+                </p>
+            </footer>
+
+            {isCreating && <CreateComponent closeCreate={() => setIsCreating(false)} />}
+        </div>
     );
 };

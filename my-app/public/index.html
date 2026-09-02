@@ -4,8 +4,8 @@
     <meta charset="utf-8" />
     <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#000000" />
-    <meta name="description" content="Web site created using create-react-app" />
+    <meta name="theme-color" content="#07070a" />
+    <meta name="description" content="Общий холст и общий текст: несколько человек рисуют одновременно, штрихи светятся цветом автора." />
     <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
     <!--
       manifest.json provides metadata used when your web app is installed on a
@@ -21,7 +21,16 @@
       work correctly both with client-side routing and a non-root public URL.
       Learn how to configure a non-root public URL by running `npm run build`.
     -->
-    <title>DRAWER</title>
+    <title>Drawer — совместная доска в реальном времени</title>
+    <script>
+      // Режим ставим до первой отрисовки, иначе дневная тема мигает тёмной
+      (function () {
+        try {
+          var day = localStorage.getItem('theme') === 'light';
+          document.documentElement.setAttribute('data-mode', day ? 'day' : 'night');
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>

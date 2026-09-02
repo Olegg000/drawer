@@ -2,7 +2,7 @@ import { io, Socket } from 'socket.io-client';
 
 export interface RoomState {
     text: string;
-    lines: { points: number[] }[];
+    lines: { id: string; points: number[]; color?: string; width?: number }[];
     userCount: number;
 }
 
@@ -85,15 +85,23 @@ export class ServerABI {
         }
     }
 
-    static sendDrawLine(line: { points: number[] }) {
+    static sendDrawLine(line: { id: string; points: number[]; color?: string; width?: number }) {
         if (ServerABI.socket?.connected && ServerABI.currentRoomId) {
             ServerABI.socket.emit('drawLine', { roomId: ServerABI.currentRoomId, line });
         }
     }
 
-    static sendUpdateLine(points: number[]) {
+    // Обновление адресуем по идентификатору штриха: когда рисуют несколько человек,
+    // «последняя линия» у каждого своя, и без id участники затирают чужие штрихи.
+    static sendUpdateLine(id: string, points: number[]) {
         if (ServerABI.socket?.connected && ServerABI.currentRoomId) {
-            ServerABI.socket.emit('updateLine', { roomId: ServerABI.currentRoomId, points });
+            ServerABI.socket.emit('updateLine', { roomId: ServerABI.currentRoomId, id, points });
+        }
+    }
+
+    static sendRemoveLine(id: string) {
+        if (ServerABI.socket?.connected && ServerABI.currentRoomId) {
+            ServerABI.socket.emit('removeLine', { roomId: ServerABI.currentRoomId, id });
         }
     }
 

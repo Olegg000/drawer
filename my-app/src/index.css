@@ -1,13 +1,25 @@
+@import './styles/lightboard.css';
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html { color-scheme: dark; }
+html[data-mode="day"] { color-scheme: light; }
+
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
+  background: var(--lb-void);
+  color: var(--lb-text);
+  font-family: var(--lb-ui);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
-    monospace;
-}
+code { font-family: var(--lb-mono); }
+
+::selection { background: rgba(94, 234, 212, .28); }
+
+/* Тонкая полоса прокрутки, чтобы не рвать тёмный фон */
+* { scrollbar-width: thin; scrollbar-color: var(--lb-line-strong) transparent; }
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-thumb { background: var(--lb-line-strong); border-radius: 999px; }
+*::-webkit-scrollbar-track { background: transparent; }

@@ -16,18 +16,20 @@ interface Stroke {
     delay: number;
 }
 
+// Штрихи живут в правой половине: слева лежит вуаль под заголовок,
+// и прорисовка под ней была бы не видна.
 const STROKES: Stroke[] = [
     {
         color: "#5eead4", dayColor: "#0d9488", width: 3.2, author: "Олег", delay: 0,
-        path: [[0.08, 0.68], [0.20, 0.20], [0.34, 0.86], [0.47, 0.50], [0.60, 0.16], [0.78, 0.28], [0.94, 0.38]],
+        path: [[0.42, 0.72], [0.52, 0.20], [0.62, 0.90], [0.72, 0.48], [0.81, 0.14], [0.90, 0.26], [0.99, 0.40]],
     },
     {
         color: "#d946ef", dayColor: "#c026d3", width: 2.6, author: "Марина", delay: 0.18,
-        path: [[0.14, 0.30], [0.30, 0.58], [0.44, 0.18], [0.60, 0.66], [0.72, 0.92], [0.84, 0.62], [0.92, 0.74]],
+        path: [[0.44, 0.28], [0.55, 0.62], [0.64, 0.16], [0.74, 0.68], [0.83, 0.95], [0.91, 0.60], [0.98, 0.78]],
     },
     {
         color: "#a78bfa", dayColor: "#7c3aed", width: 2.2, delay: 0.42,
-        path: [[0.22, 0.88], [0.36, 0.74], [0.52, 0.92], [0.66, 0.78]],
+        path: [[0.47, 0.92], [0.59, 0.78], [0.72, 0.96], [0.85, 0.82]],
     },
 ];
 
@@ -145,6 +147,11 @@ export const GlowCanvas: React.FC<GlowCanvasProps> = ({ glow, className, style }
             if (label) {
                 label.style.left = `${px}px`;
                 label.style.top = `${py}px`;
+                // У правого края разворачиваем подпись влево, иначе её срезает на узких экранах
+                const flip = px > width - label.offsetWidth - 16;
+                label.style.transform = flip
+                    ? "translate(calc(-100% - 8px), -50%)"
+                    : "translate(8px, -50%)";
                 label.style.opacity = String(progress < 1 ? fade : 0);
             }
         };
